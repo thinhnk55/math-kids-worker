@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   course_id INTEGER NOT NULL,
   title TEXT NOT NULL,
+  cover_url TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'published',
   created_at INTEGER NOT NULL,

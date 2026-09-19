@@ -114,11 +114,12 @@ export async function handleCreateLesson(request: Request, env: Env, origin: str
 
   try {
     const res = await env.DB.prepare(`
-      INSERT INTO lessons (course_id, title, sort_order, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO lessons (course_id, title, cover_url, sort_order, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).bind(
       courseIdNum,
       String(body.title).trim(),
+      body.cover_url ? String(body.cover_url).trim() : null,
       typeof body.sort_order === 'number' ? body.sort_order : 0,
       body.status ? String(body.status).trim() : 'published',
       now,

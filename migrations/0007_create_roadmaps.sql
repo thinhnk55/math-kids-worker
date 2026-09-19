@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS roadmaps (
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT,
+  cover_url TEXT,
   age_range TEXT, -- vd: '4 - 6 tuổi', 'Tiểu học'
   status TEXT NOT NULL DEFAULT 'published',
   sort_order INTEGER NOT NULL DEFAULT 0,

@@ -88,7 +88,7 @@ export async function handleListMyRoadmaps(
   }
 
   const { results } = await env.DB.prepare(`
-    SELECT lr.*, r.code, r.name, r.description, r.age_range
+    SELECT lr.*, r.code, r.name, r.description, r.cover_url, r.age_range
     FROM learner_roadmaps lr
     JOIN roadmaps r ON r.id = lr.roadmap_id
     WHERE lr.profile_id = ?
@@ -160,12 +160,13 @@ export async function handleCreateRoadmap(request: Request, env: Env, origin: st
 
   try {
     const res = await env.DB.prepare(`
-      INSERT INTO roadmaps (code, name, description, age_range, status, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO roadmaps (code, name, description, cover_url, age_range, status, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       String(body.code).trim().toLowerCase(),
       String(body.name).trim(),
       body.description ? String(body.description).trim() : null,
+      body.cover_url ? String(body.cover_url).trim() : null,
       body.age_range ? String(body.age_range).trim() : null,
       body.status ? String(body.status).trim() : 'published',
       typeof body.sort_order === 'number' ? body.sort_order : 0,
