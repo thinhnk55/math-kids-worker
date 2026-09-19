@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS learner_lessons (
   course_id INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'in_progress', -- 'in_progress', 'completed'
   score INTEGER DEFAULT 0,
-  stars INTEGER DEFAULT 0, -- 1 đến 3 sao
+  meta TEXT, -- JSON linh hoạt (lưu stars, answers, time_spent, badges...)
   completed_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,

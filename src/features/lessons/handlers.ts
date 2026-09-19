@@ -17,8 +17,8 @@ export async function handleListLessons(
   if (targetProfileId) {
     query += `,
       (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as learner_status,
-      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as stars,
-      (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as score
+      (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as score,
+      (SELECT ll.meta FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as learner_meta
     `;
   }
   query += ' FROM lessons l WHERE l.course_id = ? AND l.status = \'published\' ORDER BY l.sort_order ASC, l.created_at ASC';
@@ -58,7 +58,7 @@ export async function handleGetLesson(
     query += `,
       (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as learner_status,
       (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as score,
-      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as stars
+      (SELECT ll.meta FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as learner_meta
     `;
   }
   query += ' FROM lessons l WHERE l.id = ? LIMIT 1';

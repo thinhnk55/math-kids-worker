@@ -121,8 +121,8 @@ export async function handleGetCourse(
   const condition = profileId ? `ll.profile_id = ${Number.parseInt(profileId, 10)}` : userId ? `ll.user_id = ${userId}` : null;
   const lessonsRes = await env.DB.prepare(`
     SELECT l.* ${condition ? `, (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as learner_status,
-      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as stars,
-      (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as score` : ''}
+      (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as score,
+      (SELECT ll.meta FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as learner_meta` : ''}
     FROM lessons l
     WHERE l.course_id = ? AND l.status = 'published'
     ORDER BY l.sort_order ASC, l.created_at ASC

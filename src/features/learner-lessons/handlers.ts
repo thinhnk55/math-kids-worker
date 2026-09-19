@@ -51,7 +51,12 @@ export async function handleSaveLessonProgress(
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const status = body?.status === 'completed' ? 'completed' : 'in_progress';
   const score = typeof body?.score === 'number' ? body.score : 0;
-  const stars = typeof body?.stars === 'number' ? Math.min(3, Math.max(0, body.stars)) : 0;
+  
+  // Xử lý meta (JSON string hoặc object)
+  let metaString: string | null = null;
+  if (body?.meta !== undefined && body?.meta !== null) {
+    metaString = typeof body.meta === 'string' ? body.meta : JSON.stringify(body.meta);
+  }
 
   const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
   if (!targetProfileId) {
@@ -84,15 +89,15 @@ export async function handleSaveLessonProgress(
 
   // 1. Lưu hoặc cập nhật tiến độ bài học của profile
   await env.DB.prepare(`
-    INSERT INTO learner_lessons (profile_id, user_id, lesson_id, course_id, status, score, stars, completed_at, created_at, updated_at)
+    INSERT INTO learner_lessons (profile_id, user_id, lesson_id, course_id, status, score, meta, completed_at, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(profile_id, lesson_id) DO UPDATE SET
       status = excluded.status,
       score = MAX(learner_lessons.score, excluded.score),
-      stars = MAX(learner_lessons.stars, excluded.stars),
+      meta = COALESCE(excluded.meta, learner_lessons.meta),
       completed_at = COALESCE(learner_lessons.completed_at, excluded.completed_at),
       updated_at = excluded.updated_at
-  `).bind(targetProfileId, userId, lesson.id, lesson.course_id, status, score, stars, completedAt, now, now).run();
+  `).bind(targetProfileId, userId, lesson.id, lesson.course_id, status, score, metaString, completedAt, now, now).run();
 
   // 2. Cập nhật last_lesson_id trong learner_courses của profile
   await env.DB.prepare(`
