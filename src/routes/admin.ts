@@ -1,6 +1,7 @@
 import { handleCreateCourse, handleGetCourse, handleListCourses } from '../features/courses/handlers.ts';
 import { handleCreateLesson, handleGetLesson, handleListLessons } from '../features/lessons/handlers.ts';
 import { handleCreateRoadmap, handleGetRoadmap, handleListRoadmaps } from '../features/roadmaps/handlers.ts';
+import { handleCreateUploadPresign, handleDeleteStorageAsset } from '../features/storage/handlers.ts';
 import {
   handleCreateTaxonomy,
   handleCreateTaxonomyTerm,
@@ -72,6 +73,15 @@ export async function routeAdminRequest(
   const roadmapMatch = path.match(/^\/roadmaps\/([^/]+)$/);
   if (roadmapMatch) {
     if (request.method === 'GET') return handleGetRoadmap(env, origin, roadmapMatch[1]);
+  }
+
+  // Storage / Uploads (math-bucket)
+  if (path === '/storage/presign' && request.method === 'POST') {
+    return handleCreateUploadPresign(request, env, origin);
+  }
+
+  if (path === '/storage/delete' && (request.method === 'POST' || request.method === 'DELETE')) {
+    return handleDeleteStorageAsset(request, env, origin);
   }
 
   return errorResponse(404, 'NOT_FOUND', 'Admin endpoint not found', origin);

@@ -42,6 +42,12 @@ API backend trên Cloudflare Workers cho ứng dụng **Toán Thiếu Nhi (Math 
    - `POST /v1/my/roadmaps/:idOrCode/progress`: Cập nhật chặng học hiện tại (`current_step_order`), điểm số (`score`), trạng thái (`completed`), và metadata (`meta`).
    - `POST /v1/admin/roadmaps`: Tạo lộ trình học (Admin).
 
+8. **Storage (`math-bucket`)**:
+   - R2 Bucket: `math-bucket` (Public domain: `https://math-bucket.hocnhe.com`).
+   - Nội dung môn Toán thiếu nhi (Math Kids) được lưu trữ chuyên biệt trong prefix `kids/*` (ví dụ: `kids/courses/`, `kids/lessons/`, `kids/roadmaps/`, `kids/assets/`).
+   - `POST /v1/admin/storage/presign`: Tạo URL presigned PUT để client tải trực tiếp hình ảnh / âm thanh / tài nguyên lên `math-bucket` dưới thư mục `kids/*`.
+   - `POST /v1/admin/storage/delete` hoặc `DELETE /v1/admin/storage/delete`: Xoá tài nguyên trong bucket.
+
 ## Phát triển & Kiểm thử
 
 ```bash
