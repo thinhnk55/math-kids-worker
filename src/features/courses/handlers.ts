@@ -96,12 +96,16 @@ export async function handleGetCourse(
     const numProfileId = Number.parseInt(profileId, 10);
     query += `,
       (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as enrolled_status,
+      (SELECT lc.score FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as learner_score,
+      (SELECT lc.meta FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as learner_meta,
       (SELECT lc.last_lesson_id FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as last_lesson_id,
       (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${numProfileId} AND ll.status = 'completed') as completed_lessons
     `;
   } else if (userId) {
     query += `,
       (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as enrolled_status,
+      (SELECT lc.score FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as learner_score,
+      (SELECT lc.meta FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as learner_meta,
       (SELECT lc.last_lesson_id FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as last_lesson_id,
       (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.user_id = ${userId} AND ll.status = 'completed') as completed_lessons
     `;

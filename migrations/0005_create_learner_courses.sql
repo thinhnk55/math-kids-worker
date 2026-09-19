@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS learner_courses (
   user_id INTEGER NOT NULL,
   course_id INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'enrolled', -- 'enrolled' (đã đăng ký), 'favorite' (yêu thích), 'completed' (hoàn thành)
+  score INTEGER DEFAULT 0,
+  meta TEXT, -- JSON linh hoạt (lưu certificate, overall_stars, stats...)
   last_lesson_id INTEGER,
   enrolled_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,

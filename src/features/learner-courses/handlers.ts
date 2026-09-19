@@ -20,6 +20,8 @@ export async function handleListMyCourses(
     SELECT 
       c.*,
       lc.status as enrollment_status,
+      lc.score as learner_score,
+      lc.meta as learner_meta,
       lc.last_lesson_id,
       lc.enrolled_at,
       lc.updated_at as last_studied_at,
@@ -58,7 +60,14 @@ export async function handleEnrollCourse(
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  const status = body?.status === 'favorite' ? 'favorite' : 'enrolled';
+  const status = body?.status === 'favorite' ? 'favorite' : body?.status === 'completed' ? 'completed' : 'enrolled';
+  const score = typeof body?.score === 'number' ? body.score : 0;
+  
+  let metaString: string | null = null;
+  if (body?.meta !== undefined && body?.meta !== null) {
+    metaString = typeof body.meta === 'string' ? body.meta : JSON.stringify(body.meta);
+  }
+
   const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
 
   if (!targetProfileId) {
@@ -68,12 +77,14 @@ export async function handleEnrollCourse(
   const now = Date.now();
 
   await env.DB.prepare(`
-    INSERT INTO learner_courses (profile_id, user_id, course_id, status, enrolled_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO learner_courses (profile_id, user_id, course_id, status, score, meta, enrolled_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(profile_id, course_id) DO UPDATE SET
       status = excluded.status,
+      score = MAX(learner_courses.score, excluded.score),
+      meta = COALESCE(excluded.meta, learner_courses.meta),
       updated_at = excluded.updated_at
-  `).bind(targetProfileId, userId, course.id, status, now, now).run();
+  `).bind(targetProfileId, userId, course.id, status, score, metaString, now, now).run();
 
   const record = await env.DB.prepare(`
     SELECT lc.*, c.title, c.slug 
