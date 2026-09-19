@@ -55,7 +55,7 @@ export async function routeAdminRequest(
 
   // Courses
   if (path === '/courses') {
-    if (request.method === 'GET') return handleListCourses(request, env, origin);
+    if (request.method === 'GET') return handleListCourses(request, env, origin, undefined, undefined, true);
     if (request.method === 'POST') return handleCreateCourse(request, env, origin);
   }
 

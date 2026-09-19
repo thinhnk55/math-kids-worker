@@ -6,17 +6,26 @@ export async function handleListCourses(
   env: Env,
   origin: string,
   userId?: number,
-  profileId?: string
+  profileId?: string,
+  isAdmin?: boolean
 ): Promise<Response> {
   const url = new URL(request.url);
   const { page, size, offset } = parsePagination(url);
-  const q = url.searchParams.get('q')?.trim();
+  const q = url.searchParams.get('q')?.trim() || url.searchParams.get('search')?.trim();
   const rawTaxonomyTermId = url.searchParams.get('term_id') || url.searchParams.get('taxonomy_term_id');
   const taxonomyTermId = rawTaxonomyTermId ? Number.parseInt(rawTaxonomyTermId, 10) : null;
   const taxonomyCode = url.searchParams.get('taxonomy')?.trim();
+  const statusParam = url.searchParams.get('status')?.trim();
 
-  const whereConditions: string[] = ["c.status = 'published'"];
+  const whereConditions: string[] = [];
   const params: unknown[] = [];
+
+  if (statusParam) {
+    whereConditions.push('c.status = ?');
+    params.push(statusParam);
+  } else if (!isAdmin) {
+    whereConditions.push("c.status = 'published'");
+  }
 
   if (q) {
     whereConditions.push('(c.title LIKE ? OR c.description LIKE ?)');
