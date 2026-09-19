@@ -215,7 +215,7 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
       String(body.title).trim(),
       body.description ? String(body.description).trim() : null,
       body.cover_url ? String(body.cover_url).trim() : null,
-      body.status ? String(body.status).trim() : 'published',
+      body.status ? String(body.status).trim() : 'draft',
       typeof body.sort_order === 'number' ? body.sort_order : 0,
       now,
       now
