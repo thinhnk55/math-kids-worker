@@ -12,8 +12,6 @@ export async function handleListCourses(
   const url = new URL(request.url);
   const { page, size, offset } = parsePagination(url);
   const q = url.searchParams.get('q')?.trim();
-  const ageGroup = url.searchParams.get('age_group')?.trim();
-  const level = url.searchParams.get('level')?.trim();
   const taxonomyTermId = url.searchParams.get('term_id') || url.searchParams.get('taxonomy_term_id');
   const taxonomyCode = url.searchParams.get('taxonomy')?.trim();
 
@@ -24,16 +22,6 @@ export async function handleListCourses(
     whereConditions.push('(c.title LIKE ? OR c.subtitle LIKE ? OR c.description LIKE ?)');
     const searchTerm = `%${q}%`;
     params.push(searchTerm, searchTerm, searchTerm);
-  }
-
-  if (ageGroup) {
-    whereConditions.push('c.age_group LIKE ?');
-    params.push(`%${ageGroup}%`);
-  }
-
-  if (level) {
-    whereConditions.push('c.level = ?');
-    params.push(level);
   }
 
   if (taxonomyTermId) {
@@ -183,8 +171,8 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
 
   try {
     await env.DB.prepare(`
-      INSERT INTO courses (id, slug, title, subtitle, description, cover_url, age_group, level, color_tone, status, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO courses (id, slug, title, subtitle, description, cover_url, status, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id,
       String(body.slug).trim().toLowerCase(),
@@ -192,9 +180,6 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
       body.subtitle ? String(body.subtitle).trim() : null,
       body.description ? String(body.description).trim() : null,
       body.cover_url ? String(body.cover_url).trim() : null,
-      body.age_group ? String(body.age_group).trim() : null,
-      body.level ? String(body.level).trim() : 'Cơ bản',
-      body.color_tone ? String(body.color_tone).trim() : 'orange',
       body.status ? String(body.status).trim() : 'published',
       typeof body.sort_order === 'number' ? body.sort_order : 0,
       now,

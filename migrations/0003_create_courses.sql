@@ -6,9 +6,6 @@ CREATE TABLE IF NOT EXISTS courses (
   subtitle TEXT,
   description TEXT,
   cover_url TEXT,
-  age_group TEXT, -- vd: '4-5 tuổi', 'Lớp 1 (6-7 tuổi)', 'Lớp 2 (7-8 tuổi)'
-  level TEXT,     -- vd: 'Cơ bản', 'Nâng cao', 'Tư duy'
-  color_tone TEXT DEFAULT 'orange',
   status TEXT NOT NULL DEFAULT 'published', -- 'draft', 'published', 'archived'
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,

@@ -5,7 +5,7 @@ API backend trên Cloudflare Workers cho ứng dụng **Toán Thiếu Nhi (Math 
 ## Chức năng cốt lõi
 
 1. **Course (`courses`)**:
-   - `GET /v1/courses`: Danh sách khoá học, hỗ trợ tìm kiếm theo từ khoá (`?q=`), lọc theo độ tuổi (`?age_group=`), cấp độ (`?level=`), danh mục (`?taxonomy_id=`) và phân trang (`page`, `size`). Kèm theo số lượng bài học và trạng thái học nếu có user token.
+   - `GET /v1/courses`: Danh sách khoá học, hỗ trợ tìm kiếm theo từ khoá (`?q=`), lọc theo taxonomy term (`?term_id=`, `?taxonomy=`) và phân trang (`page`, `size`). Kèm theo số lượng bài học và trạng thái học nếu có user token.
    - `GET /v1/courses/:idOrSlug`: Chi tiết khoá học, danh sách chương học, bài học và danh mục taxonomy.
    - `POST /v1/admin/courses`: Tạo khoá học mới (Admin).
 
