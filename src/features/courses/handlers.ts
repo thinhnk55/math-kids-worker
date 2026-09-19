@@ -80,8 +80,7 @@ export async function handleListCourses(
   // List courses
   let listQuery = `
     SELECT 
-      c.*,
-      (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id AND l.status = 'published') as total_lessons
+      c.*
   `;
 
   if (profileId) {
