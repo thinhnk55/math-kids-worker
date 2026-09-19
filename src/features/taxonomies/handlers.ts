@@ -1,5 +1,4 @@
 import { errorResponse, successResponse } from '../../utils/response.ts';
-import { generateUUIDv7 } from '../../utils/uuid.ts';
 
 // 1. Taxonomies Handlers
 export async function handleListTaxonomies(env: Env, origin: string): Promise<Response> {
@@ -14,9 +13,10 @@ export async function handleListTaxonomies(env: Env, origin: string): Promise<Re
 }
 
 export async function handleGetTaxonomy(env: Env, origin: string, idOrCode: string): Promise<Response> {
-  const taxonomy = await env.DB.prepare(`
-    SELECT * FROM taxonomies WHERE id = ? OR code = ? LIMIT 1
-  `).bind(idOrCode, idOrCode).first<Record<string, unknown>>();
+  const idNum = Number.parseInt(idOrCode, 10);
+  const taxonomy = await env.DB.prepare(
+    !Number.isNaN(idNum) ? 'SELECT * FROM taxonomies WHERE id = ? OR code = ? LIMIT 1' : 'SELECT * FROM taxonomies WHERE code = ? LIMIT 1'
+  ).bind(!Number.isNaN(idNum) ? idNum : idOrCode, idOrCode).first<Record<string, unknown>>();
 
   if (!taxonomy) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy taxonomy', origin);
 
@@ -33,15 +33,13 @@ export async function handleCreateTaxonomy(request: Request, env: Env, origin: s
     return errorResponse(400, 'VALIDATION_ERROR', 'code và name là bắt buộc', origin);
   }
 
-  const id = generateUUIDv7();
   const now = Date.now();
 
   try {
-    await env.DB.prepare(`
-      INSERT INTO taxonomies (id, code, name, description, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+    const res = await env.DB.prepare(`
+      INSERT INTO taxonomies (code, name, description, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
-      id,
       String(body.code).trim().toLowerCase(),
       String(body.name).trim(),
       body.description ? String(body.description).trim() : null,
@@ -50,7 +48,8 @@ export async function handleCreateTaxonomy(request: Request, env: Env, origin: s
       now
     ).run();
 
-    const created = await env.DB.prepare('SELECT * FROM taxonomies WHERE id = ?').bind(id).first();
+    const newId = res.meta?.last_row_id;
+    const created = await env.DB.prepare('SELECT * FROM taxonomies WHERE id = ?').bind(newId).first();
     return successResponse(201, 'CREATED', created, origin);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -70,8 +69,14 @@ export async function handleListTaxonomyTerms(request: Request, env: Env, origin
   const params: unknown[] = [];
 
   if (tax) {
-    query += ' WHERE t.id = ? OR t.code = ?';
-    params.push(tax, tax);
+    const taxNum = Number.parseInt(tax, 10);
+    if (!Number.isNaN(taxNum)) {
+      query += ' WHERE t.id = ? OR t.code = ?';
+      params.push(taxNum, tax);
+    } else {
+      query += ' WHERE t.code = ?';
+      params.push(tax);
+    }
   }
 
   query += ' ORDER BY tt.sort_order ASC, tt.name ASC';
@@ -81,7 +86,11 @@ export async function handleListTaxonomyTerms(request: Request, env: Env, origin
 }
 
 export async function handleCreateTaxonomyTerm(request: Request, env: Env, origin: string, taxonomyId: string): Promise<Response> {
-  const taxonomy = await env.DB.prepare('SELECT id FROM taxonomies WHERE id = ? OR code = ?').bind(taxonomyId, taxonomyId).first<{ id: string }>();
+  const taxNum = Number.parseInt(taxonomyId, 10);
+  const taxonomy = await env.DB.prepare(
+    !Number.isNaN(taxNum) ? 'SELECT id FROM taxonomies WHERE id = ? OR code = ?' : 'SELECT id FROM taxonomies WHERE code = ?'
+  ).bind(!Number.isNaN(taxNum) ? taxNum : taxonomyId, taxonomyId).first<{ id: number }>();
+
   if (!taxonomy) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy nhóm taxonomy', origin);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -89,17 +98,16 @@ export async function handleCreateTaxonomyTerm(request: Request, env: Env, origi
     return errorResponse(400, 'VALIDATION_ERROR', 'code và name là bắt buộc', origin);
   }
 
-  const id = generateUUIDv7();
   const now = Date.now();
+  const parentIdNum = body.parent_id ? Number.parseInt(String(body.parent_id), 10) : null;
 
   try {
-    await env.DB.prepare(`
-      INSERT INTO taxonomy_terms (id, taxonomy_id, parent_id, code, name, description, icon, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    const res = await env.DB.prepare(`
+      INSERT INTO taxonomy_terms (taxonomy_id, parent_id, code, name, description, icon, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      id,
       taxonomy.id,
-      body.parent_id ? String(body.parent_id).trim() : null,
+      parentIdNum && !Number.isNaN(parentIdNum) ? parentIdNum : null,
       String(body.code).trim().toLowerCase(),
       String(body.name).trim(),
       body.description ? String(body.description).trim() : null,
@@ -109,7 +117,8 @@ export async function handleCreateTaxonomyTerm(request: Request, env: Env, origi
       now
     ).run();
 
-    const created = await env.DB.prepare('SELECT * FROM taxonomy_terms WHERE id = ?').bind(id).first();
+    const newId = res.meta?.last_row_id;
+    const created = await env.DB.prepare('SELECT * FROM taxonomy_terms WHERE id = ?').bind(newId).first();
     return successResponse(201, 'CREATED', created, origin);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

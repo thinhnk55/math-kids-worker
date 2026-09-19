@@ -47,10 +47,14 @@ export async function handleEnrollCourse(
   env: Env,
   origin: string,
   userId: number,
-  courseId: string,
+  courseIdOrSlug: string,
   profileIdHeader?: string | null
 ): Promise<Response> {
-  const course = await env.DB.prepare('SELECT id FROM courses WHERE id = ?').bind(courseId).first();
+  const courseIdNum = Number.parseInt(courseIdOrSlug, 10);
+  const course = await env.DB.prepare(
+    !Number.isNaN(courseIdNum) ? 'SELECT id FROM courses WHERE id = ? OR slug = ?' : 'SELECT id FROM courses WHERE slug = ?'
+  ).bind(!Number.isNaN(courseIdNum) ? courseIdNum : courseIdOrSlug, courseIdOrSlug).first<{ id: number }>();
+
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -69,14 +73,14 @@ export async function handleEnrollCourse(
     ON CONFLICT(profile_id, course_id) DO UPDATE SET
       status = excluded.status,
       updated_at = excluded.updated_at
-  `).bind(targetProfileId, userId, courseId, status, now, now).run();
+  `).bind(targetProfileId, userId, course.id, status, now, now).run();
 
   const record = await env.DB.prepare(`
     SELECT lc.*, c.title, c.slug 
     FROM learner_courses lc
     JOIN courses c ON c.id = lc.course_id
     WHERE lc.profile_id = ? AND lc.course_id = ?
-  `).bind(targetProfileId, courseId).first();
+  `).bind(targetProfileId, course.id).first();
 
   return successResponse(200, 'SUCCESS', record, origin);
 }
@@ -86,7 +90,7 @@ export async function handleUnenrollCourse(
   env: Env,
   origin: string,
   userId: number,
-  courseId: string,
+  courseIdOrSlug: string,
   profileIdHeader?: string | null
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -96,8 +100,15 @@ export async function handleUnenrollCourse(
     return errorResponse(400, 'BAD_REQUEST', 'Không tìm thấy hồ sơ học sinh', origin);
   }
 
-  await env.DB.prepare('DELETE FROM learner_courses WHERE profile_id = ? AND course_id = ?')
-    .bind(targetProfileId, courseId).run();
+  const courseIdNum = Number.parseInt(courseIdOrSlug, 10);
+  const course = await env.DB.prepare(
+    !Number.isNaN(courseIdNum) ? 'SELECT id FROM courses WHERE id = ? OR slug = ?' : 'SELECT id FROM courses WHERE slug = ?'
+  ).bind(!Number.isNaN(courseIdNum) ? courseIdNum : courseIdOrSlug, courseIdOrSlug).first<{ id: number }>();
 
-  return successResponse(200, 'DELETED', { course_id: courseId, profile_id: targetProfileId }, origin);
+  if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
+
+  await env.DB.prepare('DELETE FROM learner_courses WHERE profile_id = ? AND course_id = ?')
+    .bind(targetProfileId, course.id).run();
+
+  return successResponse(200, 'DELETED', { course_id: course.id, profile_id: targetProfileId }, origin);
 }

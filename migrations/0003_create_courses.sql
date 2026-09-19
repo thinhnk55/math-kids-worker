@@ -1,6 +1,6 @@
 -- 3. Courses: Danh sách khoá học và liên kết với taxonomy_terms
 CREATE TABLE IF NOT EXISTS courses (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   slug TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
   description TEXT,
@@ -16,8 +16,8 @@ CREATE INDEX IF NOT EXISTS idx_courses_slug ON courses(slug);
 
 -- Bảng liên kết Course và Taxonomy Term (N - N)
 CREATE TABLE IF NOT EXISTS course_taxonomy_terms (
-  course_id TEXT NOT NULL,
-  taxonomy_term_id TEXT NOT NULL,
+  course_id INTEGER NOT NULL,
+  taxonomy_term_id INTEGER NOT NULL,
   PRIMARY KEY (course_id, taxonomy_term_id),
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
   FOREIGN KEY (taxonomy_term_id) REFERENCES taxonomy_terms(id) ON DELETE CASCADE

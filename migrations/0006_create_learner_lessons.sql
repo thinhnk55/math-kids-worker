@@ -2,8 +2,8 @@
 CREATE TABLE IF NOT EXISTS learner_lessons (
   profile_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
-  lesson_id TEXT NOT NULL,
-  course_id TEXT NOT NULL,
+  lesson_id INTEGER NOT NULL,
+  course_id INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'in_progress', -- 'in_progress', 'completed'
   score INTEGER DEFAULT 0,
   stars INTEGER DEFAULT 0, -- 1 đến 3 sao

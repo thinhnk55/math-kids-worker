@@ -1,6 +1,6 @@
 -- 7. Roadmaps: Lộ trình học đề xuất và các chặng khoá học
 CREATE TABLE IF NOT EXISTS roadmaps (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS roadmaps (
 
 -- Bảng liên kết Roadmap và Courses theo thứ tự bước học
 CREATE TABLE IF NOT EXISTS roadmap_courses (
-  roadmap_id TEXT NOT NULL,
-  course_id TEXT NOT NULL,
+  roadmap_id INTEGER NOT NULL,
+  course_id INTEGER NOT NULL,
   step_order INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (roadmap_id, course_id),
   FOREIGN KEY (roadmap_id) REFERENCES roadmaps(id) ON DELETE CASCADE,

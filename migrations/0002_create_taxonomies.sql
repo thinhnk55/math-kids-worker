@@ -2,7 +2,7 @@
 
 -- 1. Taxonomies (Nhóm phân loại: 'math_topic', 'age_group', 'grade_level', 'difficulty'...)
 CREATE TABLE IF NOT EXISTS taxonomies (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT,
@@ -15,9 +15,9 @@ CREATE INDEX IF NOT EXISTS idx_taxonomies_code ON taxonomies(code);
 
 -- 2. Taxonomy Terms (Các giá trị cụ thể trong nhóm: 'addition', 'geometry', 'age_4_5'...)
 CREATE TABLE IF NOT EXISTS taxonomy_terms (
-  id TEXT PRIMARY KEY,
-  taxonomy_id TEXT NOT NULL,
-  parent_id TEXT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  taxonomy_id INTEGER NOT NULL,
+  parent_id INTEGER,
   code TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,

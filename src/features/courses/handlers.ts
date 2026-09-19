@@ -1,6 +1,5 @@
 import { parsePagination } from '../../utils/pagination.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
-import { generateUUIDv7 } from '../../utils/uuid.ts';
 
 export async function handleListCourses(
   request: Request,
@@ -12,7 +11,8 @@ export async function handleListCourses(
   const url = new URL(request.url);
   const { page, size, offset } = parsePagination(url);
   const q = url.searchParams.get('q')?.trim();
-  const taxonomyTermId = url.searchParams.get('term_id') || url.searchParams.get('taxonomy_term_id');
+  const rawTaxonomyTermId = url.searchParams.get('term_id') || url.searchParams.get('taxonomy_term_id');
+  const taxonomyTermId = rawTaxonomyTermId ? Number.parseInt(rawTaxonomyTermId, 10) : null;
   const taxonomyCode = url.searchParams.get('taxonomy')?.trim();
 
   const whereConditions: string[] = ["c.status = 'published'"];
@@ -24,7 +24,7 @@ export async function handleListCourses(
     params.push(searchTerm, searchTerm);
   }
 
-  if (taxonomyTermId) {
+  if (taxonomyTermId && !Number.isNaN(taxonomyTermId)) {
     whereConditions.push('EXISTS (SELECT 1 FROM course_taxonomy_terms ctt WHERE ctt.course_id = c.id AND ctt.taxonomy_term_id = ?)');
     params.push(taxonomyTermId);
   }
@@ -85,6 +85,7 @@ export async function handleGetCourse(
   userId?: number,
   profileId?: string
 ): Promise<Response> {
+  const courseIdNum = Number.parseInt(courseIdOrSlug, 10);
   let query = `
     SELECT 
       c.*,
@@ -108,11 +109,12 @@ export async function handleGetCourse(
 
   query += `
     FROM courses c
-    WHERE c.id = ? OR c.slug = ?
+    WHERE ${!Number.isNaN(courseIdNum) ? 'c.id = ? OR c.slug = ?' : 'c.slug = ?'}
     LIMIT 1
   `;
 
-  const course = await env.DB.prepare(query).bind(courseIdOrSlug, courseIdOrSlug).first<Record<string, unknown>>();
+  const queryParams = !Number.isNaN(courseIdNum) ? [courseIdNum, courseIdOrSlug] : [courseIdOrSlug];
+  const course = await env.DB.prepare(query).bind(...queryParams).first<Record<string, unknown>>();
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
   // Fetch Lessons and calculate sequential access
@@ -167,15 +169,13 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
     return errorResponse(400, 'VALIDATION_ERROR', 'title và slug là bắt buộc', origin);
   }
 
-  const id = generateUUIDv7();
   const now = Date.now();
 
   try {
-    await env.DB.prepare(`
-      INSERT INTO courses (id, slug, title, description, cover_url, status, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    const res = await env.DB.prepare(`
+      INSERT INTO courses (slug, title, description, cover_url, status, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      id,
       String(body.slug).trim().toLowerCase(),
       String(body.title).trim(),
       body.description ? String(body.description).trim() : null,
@@ -186,11 +186,16 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
       now
     ).run();
 
+    const id = res.meta?.last_row_id;
+
     // Link Taxonomy Terms if provided
     const termIds = body.taxonomy_term_ids || body.term_ids;
-    if (Array.isArray(termIds) && termIds.length > 0) {
-      for (const termId of termIds) {
-        await env.DB.prepare('INSERT OR IGNORE INTO course_taxonomy_terms (course_id, taxonomy_term_id) VALUES (?, ?)').bind(id, termId).run();
+    if (Array.isArray(termIds) && termIds.length > 0 && id) {
+      for (const rawTermId of termIds) {
+        const termId = typeof rawTermId === 'number' ? rawTermId : Number.parseInt(String(rawTermId), 10);
+        if (!Number.isNaN(termId)) {
+          await env.DB.prepare('INSERT OR IGNORE INTO course_taxonomy_terms (course_id, taxonomy_term_id) VALUES (?, ?)').bind(id, termId).run();
+        }
       }
     }
 

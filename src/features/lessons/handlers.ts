@@ -1,6 +1,5 @@
 import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
-import { generateUUIDv7 } from '../../utils/uuid.ts';
 
 export async function handleListLessons(
   request: Request,
@@ -12,6 +11,7 @@ export async function handleListLessons(
 ): Promise<Response> {
   const url = new URL(request.url);
   const targetProfileId = userId ? await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader) : null;
+  const courseIdNum = Number.parseInt(courseId, 10);
 
   let query = 'SELECT l.*';
   if (targetProfileId) {
@@ -23,7 +23,7 @@ export async function handleListLessons(
   }
   query += ' FROM lessons l WHERE l.course_id = ? AND l.status = \'published\' ORDER BY l.sort_order ASC, l.created_at ASC';
 
-  const { results } = await env.DB.prepare(query).bind(courseId).all();
+  const { results } = await env.DB.prepare(query).bind(!Number.isNaN(courseIdNum) ? courseIdNum : courseId).all();
   const rawLessons = (results ?? []) as Array<Record<string, unknown>>;
 
   let prevLessonCompleted = true;
@@ -51,6 +51,7 @@ export async function handleGetLesson(
 ): Promise<Response> {
   const url = new URL(request.url);
   const targetProfileId = userId ? await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader) : null;
+  const lessonIdNum = Number.parseInt(lessonId, 10);
 
   let query = 'SELECT l.*';
   if (targetProfileId) {
@@ -62,12 +63,12 @@ export async function handleGetLesson(
   }
   query += ' FROM lessons l WHERE l.id = ? LIMIT 1';
 
-  const lesson = await env.DB.prepare(query).bind(lessonId).first<Record<string, unknown>>();
+  const lesson = await env.DB.prepare(query).bind(!Number.isNaN(lessonIdNum) ? lessonIdNum : lessonId).first<Record<string, unknown>>();
   if (!lesson) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy bài học', origin);
 
   // Kiểm tra bài học liền kề trước đó xem có bị lock không
   let isLocked = false;
-  const courseId = String(lesson.course_id);
+  const courseId = lesson.course_id as number;
   const sortOrder = Number(lesson.sort_order);
   const createdAt = Number(lesson.created_at);
 
@@ -77,7 +78,7 @@ export async function handleGetLesson(
       AND (sort_order < ? OR (sort_order = ? AND created_at < ?))
     ORDER BY sort_order DESC, created_at DESC 
     LIMIT 1
-  `).bind(courseId, sortOrder, sortOrder, createdAt).first<{ id: string }>();
+  `).bind(courseId, sortOrder, sortOrder, createdAt).first<{ id: number }>();
 
   if (prevLesson && targetProfileId) {
     const prevProgress = await env.DB.prepare(`
@@ -99,21 +100,24 @@ export async function handleGetLesson(
 }
 
 export async function handleCreateLesson(request: Request, env: Env, origin: string, courseId: string): Promise<Response> {
+  const courseIdNum = Number.parseInt(courseId, 10);
+  if (Number.isNaN(courseIdNum)) {
+    return errorResponse(400, 'VALIDATION_ERROR', 'courseId không hợp lệ', origin);
+  }
+
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || !body.title) {
     return errorResponse(400, 'VALIDATION_ERROR', 'title là bắt buộc', origin);
   }
 
-  const id = generateUUIDv7();
   const now = Date.now();
 
   try {
-    await env.DB.prepare(`
-      INSERT INTO lessons (id, course_id, title, sort_order, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+    const res = await env.DB.prepare(`
+      INSERT INTO lessons (course_id, title, sort_order, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
-      id,
-      courseId,
+      courseIdNum,
       String(body.title).trim(),
       typeof body.sort_order === 'number' ? body.sort_order : 0,
       body.status ? String(body.status).trim() : 'published',
@@ -121,6 +125,7 @@ export async function handleCreateLesson(request: Request, env: Env, origin: str
       now
     ).run();
 
+    const id = res.meta?.last_row_id;
     const created = await env.DB.prepare('SELECT * FROM lessons WHERE id = ?').bind(id).first();
     return successResponse(201, 'CREATED', created, origin);
   } catch (err: unknown) {

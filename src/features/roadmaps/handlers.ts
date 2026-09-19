@@ -1,5 +1,4 @@
 import { errorResponse, successResponse } from '../../utils/response.ts';
-import { generateUUIDv7 } from '../../utils/uuid.ts';
 
 export async function handleListRoadmaps(env: Env, origin: string): Promise<Response> {
   const { results } = await env.DB.prepare(`
@@ -16,9 +15,10 @@ export async function handleGetRoadmap(
   userId?: number,
   profileId?: string
 ): Promise<Response> {
-  const roadmap = await env.DB.prepare(`
-    SELECT * FROM roadmaps WHERE (id = ? OR code = ?) AND status = 'published' LIMIT 1
-  `).bind(roadmapIdOrCode, roadmapIdOrCode).first<Record<string, unknown>>();
+  const roadmapIdNum = Number.parseInt(roadmapIdOrCode, 10);
+  const roadmap = await env.DB.prepare(
+    !Number.isNaN(roadmapIdNum) ? 'SELECT * FROM roadmaps WHERE (id = ? OR code = ?) AND status = \'published\' LIMIT 1' : 'SELECT * FROM roadmaps WHERE code = ? AND status = \'published\' LIMIT 1'
+  ).bind(!Number.isNaN(roadmapIdNum) ? roadmapIdNum : roadmapIdOrCode, roadmapIdOrCode).first<Record<string, unknown>>();
 
   if (!roadmap) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy lộ trình học', origin);
 
@@ -64,15 +64,13 @@ export async function handleCreateRoadmap(request: Request, env: Env, origin: st
     return errorResponse(400, 'VALIDATION_ERROR', 'name và code là bắt buộc', origin);
   }
 
-  const id = generateUUIDv7();
   const now = Date.now();
 
   try {
-    await env.DB.prepare(`
-      INSERT INTO roadmaps (id, code, name, description, age_range, status, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    const res = await env.DB.prepare(`
+      INSERT INTO roadmaps (code, name, description, age_range, status, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      id,
       String(body.code).trim().toLowerCase(),
       String(body.name).trim(),
       body.description ? String(body.description).trim() : null,
@@ -83,11 +81,16 @@ export async function handleCreateRoadmap(request: Request, env: Env, origin: st
       now
     ).run();
 
-    if (Array.isArray(body.course_ids) && body.course_ids.length > 0) {
+    const id = res.meta?.last_row_id;
+
+    if (Array.isArray(body.course_ids) && body.course_ids.length > 0 && id) {
       for (let i = 0; i < body.course_ids.length; i++) {
-        await env.DB.prepare('INSERT OR IGNORE INTO roadmap_courses (roadmap_id, course_id, step_order) VALUES (?, ?, ?)')
-          .bind(id, body.course_ids[i], i + 1)
-          .run();
+        const cId = typeof body.course_ids[i] === 'number' ? body.course_ids[i] : Number.parseInt(String(body.course_ids[i]), 10);
+        if (!Number.isNaN(cId)) {
+          await env.DB.prepare('INSERT OR IGNORE INTO roadmap_courses (roadmap_id, course_id, step_order) VALUES (?, ?, ?)')
+            .bind(id, cId, i + 1)
+            .run();
+        }
       }
     }
 

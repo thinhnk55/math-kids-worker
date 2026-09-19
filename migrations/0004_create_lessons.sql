@@ -1,7 +1,7 @@
 -- 4. Lessons: Danh sách bài học thuộc khoá học (nhóm theo chương)
 CREATE TABLE IF NOT EXISTS lessons (
-  id TEXT PRIMARY KEY,
-  course_id TEXT NOT NULL,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER NOT NULL,
   title TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'published',
