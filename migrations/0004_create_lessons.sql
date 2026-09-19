@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS lessons (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   course_id INTEGER NOT NULL,
+  slug TEXT NOT NULL,
   title TEXT NOT NULL,
   cover_url TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -12,3 +13,4 @@ CREATE TABLE IF NOT EXISTS lessons (
 );
 
 CREATE INDEX IF NOT EXISTS idx_lessons_course ON lessons(course_id, sort_order);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lessons_course_slug ON lessons(course_id, slug);

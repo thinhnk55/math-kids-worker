@@ -1,5 +1,6 @@
 import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
+import { slugify } from '../../utils/slug.ts';
 
 export async function handleListLessons(
   request: Request,
@@ -74,9 +75,10 @@ export async function handleGetLesson(
       (SELECT ll.meta FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as learner_meta
     `;
   }
-  query += ' FROM lessons l WHERE l.id = ? LIMIT 1';
+  query += ` FROM lessons l WHERE ${!Number.isNaN(lessonIdNum) ? 'l.id = ? OR l.slug = ?' : 'l.slug = ?'} LIMIT 1`;
 
-  const lesson = await env.DB.prepare(query).bind(!Number.isNaN(lessonIdNum) ? lessonIdNum : lessonId).first<Record<string, unknown>>();
+  const queryParams = !Number.isNaN(lessonIdNum) ? [lessonIdNum, lessonId] : [lessonId];
+  const lesson = await env.DB.prepare(query).bind(...queryParams).first<Record<string, unknown>>();
   if (!lesson) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy bài học', origin);
 
   // Kiểm tra bài học liền kề trước đó xem có bị lock không
@@ -123,15 +125,19 @@ export async function handleCreateLesson(request: Request, env: Env, origin: str
     return errorResponse(400, 'VALIDATION_ERROR', 'title là bắt buộc', origin);
   }
 
+  const title = String(body.title).trim();
+  const rawSlug = body.slug ? String(body.slug).trim().toLowerCase() : slugify(title);
+  const slug = rawSlug || `bai-${Date.now()}`;
   const now = Date.now();
 
   try {
     const res = await env.DB.prepare(`
-      INSERT INTO lessons (course_id, title, cover_url, sort_order, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lessons (course_id, slug, title, cover_url, sort_order, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       courseIdNum,
-      String(body.title).trim(),
+      slug,
+      title,
       body.cover_url ? String(body.cover_url).trim() : null,
       typeof body.sort_order === 'number' ? body.sort_order : 0,
       body.status ? String(body.status).trim() : 'published',
@@ -144,6 +150,9 @@ export async function handleCreateLesson(request: Request, env: Env, origin: str
     return successResponse(201, 'CREATED', created, origin);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('UNIQUE constraint failed')) {
+      return errorResponse(409, 'CONFLICT', 'Đường dẫn bài học đã tồn tại trong khóa học này', origin);
+    }
     return errorResponse(500, 'INTERNAL_ERROR', message, origin);
   }
 }
@@ -159,6 +168,9 @@ export async function handleUpdateLesson(request: Request, env: Env, origin: str
   if (!body) return errorResponse(400, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', origin);
 
   const title = body.title !== undefined ? String(body.title).trim() : current.title;
+  const slug = body.slug !== undefined
+    ? String(body.slug).trim().toLowerCase()
+    : (body.title !== undefined ? slugify(String(body.title).trim()) : current.slug);
   const coverUrl = body.cover_url !== undefined ? (body.cover_url ? String(body.cover_url).trim() : null) : current.cover_url;
   const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : current.sort_order;
   const status = body.status !== undefined ? String(body.status).trim() : current.status;
@@ -167,14 +179,17 @@ export async function handleUpdateLesson(request: Request, env: Env, origin: str
   try {
     await env.DB.prepare(`
       UPDATE lessons 
-      SET title = ?, cover_url = ?, sort_order = ?, status = ?, updated_at = ?
+      SET title = ?, slug = ?, cover_url = ?, sort_order = ?, status = ?, updated_at = ?
       WHERE id = ?
-    `).bind(title, coverUrl, sortOrder, status, now, lessonIdNum).run();
+    `).bind(title, slug, coverUrl, sortOrder, status, now, lessonIdNum).run();
 
     const updated = await env.DB.prepare('SELECT * FROM lessons WHERE id = ?').bind(lessonIdNum).first();
     return successResponse(200, 'UPDATED', updated, origin);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('UNIQUE constraint failed')) {
+      return errorResponse(409, 'CONFLICT', 'Đường dẫn bài học đã tồn tại trong khóa học này', origin);
+    }
     return errorResponse(500, 'INTERNAL_ERROR', message, origin);
   }
 }
