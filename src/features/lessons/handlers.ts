@@ -13,6 +13,8 @@ export async function handleListLessons(
   const targetProfileId = userId ? await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader) : null;
   const courseIdNum = Number.parseInt(courseId, 10);
 
+  const statusParam = url.searchParams.get('status')?.trim();
+
   let query = 'SELECT l.*';
   if (targetProfileId) {
     query += `,
@@ -21,9 +23,20 @@ export async function handleListLessons(
       (SELECT ll.meta FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.profile_id = ${targetProfileId}) as learner_meta
     `;
   }
-  query += ' FROM lessons l WHERE l.course_id = ? AND l.status = \'published\' ORDER BY l.sort_order ASC, l.created_at ASC';
 
-  const { results } = await env.DB.prepare(query).bind(!Number.isNaN(courseIdNum) ? courseIdNum : courseId).all();
+  const whereConditions = ['l.course_id = ?'];
+  const queryBindings: unknown[] = [!Number.isNaN(courseIdNum) ? courseIdNum : courseId];
+
+  if (statusParam) {
+    whereConditions.push('l.status = ?');
+    queryBindings.push(statusParam);
+  } else if (userId || targetProfileId) {
+    whereConditions.push("l.status = 'published'");
+  }
+
+  query += ` FROM lessons l WHERE ${whereConditions.join(' AND ')} ORDER BY l.sort_order ASC, l.created_at ASC`;
+
+  const { results } = await env.DB.prepare(query).bind(...queryBindings).all();
   const rawLessons = (results ?? []) as Array<Record<string, unknown>>;
 
   let prevLessonCompleted = true;
