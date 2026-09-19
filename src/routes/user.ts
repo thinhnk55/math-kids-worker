@@ -18,11 +18,16 @@ export async function routeUserRequest(
   env: Env,
   origin: string,
   pathname: string,
-  userId: string,
+  userIdString: string,
   userRole?: string
 ): Promise<Response> {
   const path = pathname.slice('/v1'.length) || '/';
   const profileIdHeader = request.headers.get('X-Profile-ID');
+  const userId = Number.parseInt(userIdString, 10);
+
+  if (Number.isNaN(userId)) {
+    return errorResponse(401, 'UNAUTHORIZED', 'ID người dùng không hợp lệ', origin);
+  }
 
   if (path === '/' || path === '/health') {
     return new Response(JSON.stringify({ status: 'ok', service: 'math-kids-worker', userId, userRole }), {
@@ -62,12 +67,12 @@ export async function routeUserRequest(
 
   const courseLessonsMatch = path.match(/^\/courses\/([^/]+)\/lessons$/);
   if (courseLessonsMatch && request.method === 'GET') {
-    return handleListLessons(env, origin, courseLessonsMatch[1], userId);
+    return handleListLessons(env, origin, courseLessonsMatch[1]);
   }
 
   const lessonMatch = path.match(/^\/lessons\/([^/]+)$/);
   if (lessonMatch && request.method === 'GET') {
-    return handleGetLesson(env, origin, lessonMatch[1], userId);
+    return handleGetLesson(env, origin, lessonMatch[1]);
   }
 
   // 4. Learner Courses (Khoá học của tôi / Đăng ký / Huỷ)
@@ -103,7 +108,7 @@ export async function routeUserRequest(
 
   const roadmapMatch = path.match(/^\/roadmaps\/([^/]+)$/);
   if (roadmapMatch && request.method === 'GET') {
-    return handleGetRoadmap(env, origin, roadmapMatch[1], userId);
+    return handleGetRoadmap(env, origin, roadmapMatch[1], userId, profileIdHeader || undefined);
   }
 
   return errorResponse(404, 'NOT_FOUND', 'User endpoint not found', origin);

@@ -1,6 +1,6 @@
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
-async function resolveProfileId(env: Env, userId: string, requestedProfileId?: string | number | null): Promise<number | null> {
+async function resolveProfileId(env: Env, userId: number, requestedProfileId?: string | number | null): Promise<number | null> {
   if (requestedProfileId !== undefined && requestedProfileId !== null && requestedProfileId !== '') {
     const num = typeof requestedProfileId === 'number' ? requestedProfileId : Number.parseInt(String(requestedProfileId), 10);
     if (!Number.isNaN(num)) {
@@ -17,7 +17,7 @@ export async function handleListMyCourses(
   request: Request,
   env: Env,
   origin: string,
-  userId: string,
+  userId: number,
   profileIdHeader?: string | null
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -58,7 +58,7 @@ export async function handleEnrollCourse(
   request: Request,
   env: Env,
   origin: string,
-  userId: string,
+  userId: number,
   courseId: string,
   profileIdHeader?: string | null
 ): Promise<Response> {
@@ -97,7 +97,7 @@ export async function handleUnenrollCourse(
   request: Request,
   env: Env,
   origin: string,
-  userId: string,
+  userId: number,
   courseId: string,
   profileIdHeader?: string | null
 ): Promise<Response> {

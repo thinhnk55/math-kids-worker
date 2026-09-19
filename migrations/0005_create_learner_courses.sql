@@ -1,7 +1,7 @@
 -- 5. Learner Courses: Lưu trạng thái đăng ký khoá học hoặc yêu thích theo từng profile
 CREATE TABLE IF NOT EXISTS learner_courses (
   profile_id INTEGER NOT NULL,
-  user_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
   course_id TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'enrolled', -- 'enrolled' (đã đăng ký), 'favorite' (yêu thích), 'completed' (hoàn thành)
   last_lesson_id TEXT,

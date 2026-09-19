@@ -2,7 +2,7 @@ import { errorResponse, successResponse } from '../../utils/response.ts';
 
 const MAX_PROFILES_PER_USER = 3;
 
-export async function handleListProfiles(env: Env, origin: string, userId: string): Promise<Response> {
+export async function handleListProfiles(env: Env, origin: string, userId: number): Promise<Response> {
   const { results } = await env.DB.prepare(`
     SELECT * FROM profiles WHERE user_id = ? ORDER BY is_default DESC, created_at ASC
   `).bind(userId).all();
@@ -10,7 +10,7 @@ export async function handleListProfiles(env: Env, origin: string, userId: strin
   return successResponse(200, 'SUCCESS', results ?? [], origin);
 }
 
-export async function handleGetProfile(env: Env, origin: string, userId: string, profileId: string): Promise<Response> {
+export async function handleGetProfile(env: Env, origin: string, userId: number, profileId: string): Promise<Response> {
   const numericId = Number.parseInt(profileId, 10);
   if (Number.isNaN(numericId)) return errorResponse(400, 'VALIDATION_ERROR', 'ID hồ sơ không hợp lệ', origin);
 
@@ -22,7 +22,7 @@ export async function handleGetProfile(env: Env, origin: string, userId: string,
   return successResponse(200, 'SUCCESS', profile, origin);
 }
 
-export async function handleCreateProfile(request: Request, env: Env, origin: string, userId: string): Promise<Response> {
+export async function handleCreateProfile(request: Request, env: Env, origin: string, userId: number): Promise<Response> {
   // Check count of profiles
   const countRes = await env.DB.prepare('SELECT COUNT(*) as total FROM profiles WHERE user_id = ?')
     .bind(userId).first<{ total: number }>();
@@ -63,7 +63,7 @@ export async function handleUpdateProfile(
   request: Request,
   env: Env,
   origin: string,
-  userId: string,
+  userId: number,
   profileId: string
 ): Promise<Response> {
   const numericId = Number.parseInt(profileId, 10);
@@ -125,7 +125,7 @@ export async function handleUpdateProfile(
   return successResponse(200, 'UPDATED', profile, origin);
 }
 
-export async function handleDeleteProfile(env: Env, origin: string, userId: string, profileId: string): Promise<Response> {
+export async function handleDeleteProfile(env: Env, origin: string, userId: number, profileId: string): Promise<Response> {
   const numericId = Number.parseInt(profileId, 10);
   if (Number.isNaN(numericId)) return errorResponse(400, 'VALIDATION_ERROR', 'ID hồ sơ không hợp lệ', origin);
 

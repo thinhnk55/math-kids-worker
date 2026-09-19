@@ -1,7 +1,7 @@
 -- 6. Learner Lessons: Lưu lịch sử học tập theo từng bài học của profile
 CREATE TABLE IF NOT EXISTS learner_lessons (
   profile_id INTEGER NOT NULL,
-  user_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
   lesson_id TEXT NOT NULL,
   course_id TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'in_progress', -- 'in_progress', 'completed'

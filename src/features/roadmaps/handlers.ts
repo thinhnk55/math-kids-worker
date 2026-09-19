@@ -9,7 +9,13 @@ export async function handleListRoadmaps(env: Env, origin: string): Promise<Resp
   return successResponse(200, 'SUCCESS', results ?? [], origin);
 }
 
-export async function handleGetRoadmap(env: Env, origin: string, roadmapIdOrCode: string, userId?: string): Promise<Response> {
+export async function handleGetRoadmap(
+  env: Env,
+  origin: string,
+  roadmapIdOrCode: string,
+  userId?: number,
+  profileId?: string
+): Promise<Response> {
   const roadmap = await env.DB.prepare(`
     SELECT * FROM roadmaps WHERE (id = ? OR code = ?) AND status = 'published' LIMIT 1
   `).bind(roadmapIdOrCode, roadmapIdOrCode).first<Record<string, unknown>>();
@@ -24,10 +30,16 @@ export async function handleGetRoadmap(env: Env, origin: string, roadmapIdOrCode
       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id AND l.status = 'published') as total_lessons
   `;
 
-  if (userId) {
+  if (profileId) {
+    const numProfileId = Number.parseInt(profileId, 10);
     query += `,
-      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = '${userId}') as enrolled_status,
-      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.user_id = '${userId}' AND ll.status = 'completed') as completed_lessons
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as enrolled_status,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${numProfileId} AND ll.status = 'completed') as completed_lessons
+    `;
+  } else if (userId) {
+    query += `,
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as enrolled_status,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.user_id = ${userId} AND ll.status = 'completed') as completed_lessons
     `;
   }
 
