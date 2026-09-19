@@ -125,22 +125,6 @@ export async function handleGetCourse(
     ORDER BY l.sort_order ASC, l.created_at ASC
   `).bind(course.id).all();
 
-  const lessons = lessonsRes.results ?? [];
-
-  // Group lessons by chapter
-  const chaptersMap = new Map<string, Array<unknown>>();
-  for (const item of lessons) {
-    const chapterTitle = String(item.chapter_title || 'Chương 1');
-    if (!chaptersMap.has(chapterTitle)) chaptersMap.set(chapterTitle, []);
-    chaptersMap.get(chapterTitle)!.push(item);
-  }
-
-  const chapters = Array.from(chaptersMap.entries()).map(([title, items], index) => ({
-    id: `chapter-${index + 1}`,
-    title,
-    lessons: items,
-  }));
-
   // Fetch Taxonomy Terms of this course
   const termsRes = await env.DB.prepare(`
     SELECT tt.id, tt.code, tt.name, tt.icon, t.code as taxonomy_code, t.name as taxonomy_name
@@ -151,10 +135,12 @@ export async function handleGetCourse(
     ORDER BY tt.sort_order ASC
   `).bind(course.id).all();
 
+  const lessons = lessonsRes.results ?? [];
+
   const fullData = {
     ...course,
     taxonomy_terms: termsRes.results ?? [],
-    chapters,
+    lessons,
   };
 
   return successResponse(200, 'SUCCESS', fullData, origin);

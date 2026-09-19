@@ -29,7 +29,7 @@ export async function handleListLearnerLessons(
   }
 
   const { results } = await env.DB.prepare(`
-    SELECT ll.*, l.title as lesson_title, l.chapter_title
+    SELECT ll.*, l.title as lesson_title
     FROM learner_lessons ll
     JOIN lessons l ON l.id = ll.lesson_id
     WHERE ll.profile_id = ? AND ll.course_id = ?

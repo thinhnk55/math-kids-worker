@@ -2,7 +2,6 @@
 CREATE TABLE IF NOT EXISTS lessons (
   id TEXT PRIMARY KEY,
   course_id TEXT NOT NULL,
-  chapter_title TEXT NOT NULL DEFAULT 'Chương 1',
   title TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'published',
