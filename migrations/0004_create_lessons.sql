@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS lessons (
   course_id TEXT NOT NULL,
   chapter_title TEXT NOT NULL DEFAULT 'Chương 1',
   title TEXT NOT NULL,
-  subtitle TEXT,
   duration_minutes INTEGER NOT NULL DEFAULT 15,
   sort_order INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'published',

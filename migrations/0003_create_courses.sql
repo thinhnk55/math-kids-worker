@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS courses (
   id TEXT PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
-  subtitle TEXT,
   description TEXT,
   cover_url TEXT,
   status TEXT NOT NULL DEFAULT 'published', -- 'draft', 'published', 'archived'

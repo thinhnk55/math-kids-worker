@@ -19,9 +19,9 @@ export async function handleListCourses(
   const params: unknown[] = [];
 
   if (q) {
-    whereConditions.push('(c.title LIKE ? OR c.subtitle LIKE ? OR c.description LIKE ?)');
+    whereConditions.push('(c.title LIKE ? OR c.description LIKE ?)');
     const searchTerm = `%${q}%`;
-    params.push(searchTerm, searchTerm, searchTerm);
+    params.push(searchTerm, searchTerm);
   }
 
   if (taxonomyTermId) {
@@ -171,13 +171,12 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
 
   try {
     await env.DB.prepare(`
-      INSERT INTO courses (id, slug, title, subtitle, description, cover_url, status, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO courses (id, slug, title, description, cover_url, status, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id,
       String(body.slug).trim().toLowerCase(),
       String(body.title).trim(),
-      body.subtitle ? String(body.subtitle).trim() : null,
       body.description ? String(body.description).trim() : null,
       body.cover_url ? String(body.cover_url).trim() : null,
       body.status ? String(body.status).trim() : 'published',
