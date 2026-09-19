@@ -24,19 +24,41 @@ export async function handleListCourses(
     params.push(searchTerm, searchTerm);
   }
 
+  const termCode = url.searchParams.get('term')?.trim();
+
   if (taxonomyTermId && !Number.isNaN(taxonomyTermId)) {
     whereConditions.push('EXISTS (SELECT 1 FROM course_taxonomy_terms ctt WHERE ctt.course_id = c.id AND ctt.taxonomy_term_id = ?)');
     params.push(taxonomyTermId);
   }
 
-  if (taxonomyCode) {
+  if (termCode) {
     whereConditions.push(`EXISTS (
       SELECT 1 FROM course_taxonomy_terms ctt 
       JOIN taxonomy_terms tt ON tt.id = ctt.taxonomy_term_id
-      JOIN taxonomies t ON t.id = tt.taxonomy_id
-      WHERE ctt.course_id = c.id AND (t.code = ? OR t.id = ?)
+      WHERE ctt.course_id = c.id AND tt.code = ?
     )`);
-    params.push(taxonomyCode, taxonomyCode);
+    params.push(termCode);
+  }
+
+  if (taxonomyCode) {
+    const taxIdNum = Number.parseInt(taxonomyCode, 10);
+    if (!Number.isNaN(taxIdNum)) {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM course_taxonomy_terms ctt 
+        JOIN taxonomy_terms tt ON tt.id = ctt.taxonomy_term_id
+        JOIN taxonomies t ON t.id = tt.taxonomy_id
+        WHERE ctt.course_id = c.id AND (t.code = ? OR t.id = ?)
+      )`);
+      params.push(taxonomyCode, taxIdNum);
+    } else {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM course_taxonomy_terms ctt 
+        JOIN taxonomy_terms tt ON tt.id = ctt.taxonomy_term_id
+        JOIN taxonomies t ON t.id = tt.taxonomy_id
+        WHERE ctt.course_id = c.id AND t.code = ?
+      )`);
+      params.push(taxonomyCode);
+    }
   }
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
