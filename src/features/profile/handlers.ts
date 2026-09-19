@@ -37,6 +37,9 @@ export async function handleCreateProfile(request: Request, env: Env, origin: st
 
   const id = generateUUIDv7();
   const name = String(body.name).trim();
+  const firstName = body.first_name ? String(body.first_name).trim() : null;
+  const lastName = body.last_name ? String(body.last_name).trim() : null;
+  const birthYear = typeof body.birth_year === 'number' ? body.birth_year : null;
   const avatar = body.avatar ? String(body.avatar).trim() : null;
   const isDefault = total === 0 ? 1 : (body.is_default ? 1 : 0);
   const now = Date.now();
@@ -46,9 +49,9 @@ export async function handleCreateProfile(request: Request, env: Env, origin: st
   }
 
   await env.DB.prepare(`
-    INSERT INTO profiles (id, user_id, name, avatar, is_default, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, userId, name, avatar, isDefault, now, now).run();
+    INSERT INTO profiles (id, user_id, name, first_name, last_name, birth_year, avatar, is_default, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, userId, name, firstName, lastName, birthYear, avatar, isDefault, now, now).run();
 
   const profile = await env.DB.prepare('SELECT * FROM profiles WHERE id = ?').bind(id).first();
   return successResponse(201, 'CREATED', profile, origin);
@@ -70,6 +73,9 @@ export async function handleUpdateProfile(
 
   const now = Date.now();
   const name = body.name !== undefined ? String(body.name).trim() : null;
+  const firstName = body.first_name !== undefined ? (body.first_name ? String(body.first_name).trim() : null) : undefined;
+  const lastName = body.last_name !== undefined ? (body.last_name ? String(body.last_name).trim() : null) : undefined;
+  const birthYear = body.birth_year !== undefined ? (typeof body.birth_year === 'number' ? body.birth_year : null) : undefined;
   const avatar = body.avatar !== undefined ? (body.avatar ? String(body.avatar).trim() : null) : undefined;
   const isDefault = body.is_default !== undefined ? (body.is_default ? 1 : 0) : undefined;
 
@@ -83,6 +89,18 @@ export async function handleUpdateProfile(
   if (name !== null) {
     updateQuery += ', name = ?';
     params.push(name);
+  }
+  if (firstName !== undefined) {
+    updateQuery += ', first_name = ?';
+    params.push(firstName);
+  }
+  if (lastName !== undefined) {
+    updateQuery += ', last_name = ?';
+    params.push(lastName);
+  }
+  if (birthYear !== undefined) {
+    updateQuery += ', birth_year = ?';
+    params.push(birthYear);
   }
   if (avatar !== undefined) {
     updateQuery += ', avatar = ?';
