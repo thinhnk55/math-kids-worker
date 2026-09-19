@@ -1,7 +1,13 @@
 import { handleCreateCourse, handleGetCourse, handleListCourses } from '../features/courses/handlers.ts';
 import { handleCreateLesson, handleGetLesson, handleListLessons } from '../features/lessons/handlers.ts';
 import { handleCreateRoadmap, handleGetRoadmap, handleListRoadmaps } from '../features/roadmaps/handlers.ts';
-import { handleCreateTaxonomy, handleListTaxonomies } from '../features/taxonomies/handlers.ts';
+import {
+  handleCreateTaxonomy,
+  handleCreateTaxonomyTerm,
+  handleGetTaxonomy,
+  handleListTaxonomies,
+  handleListTaxonomyTerms,
+} from '../features/taxonomies/handlers.ts';
 import { errorResponse } from '../utils/response.ts';
 
 export async function routeAdminRequest(
@@ -14,8 +20,24 @@ export async function routeAdminRequest(
 
   // Taxonomies
   if (path === '/taxonomies') {
-    if (request.method === 'GET') return handleListTaxonomies(request, env, origin);
+    if (request.method === 'GET') return handleListTaxonomies(env, origin);
     if (request.method === 'POST') return handleCreateTaxonomy(request, env, origin);
+  }
+
+  const taxonomyMatch = path.match(/^\/taxonomies\/([^/]+)$/);
+  if (taxonomyMatch) {
+    if (request.method === 'GET') return handleGetTaxonomy(env, origin, taxonomyMatch[1]);
+  }
+
+  // Taxonomy Terms
+  if (path === '/taxonomy-terms') {
+    if (request.method === 'GET') return handleListTaxonomyTerms(request, env, origin);
+  }
+
+  const taxonomyTermsMatch = path.match(/^\/taxonomies\/([^/]+)\/terms$/);
+  if (taxonomyTermsMatch) {
+    if (request.method === 'GET') return handleListTaxonomyTerms(request, env, origin, taxonomyTermsMatch[1]);
+    if (request.method === 'POST') return handleCreateTaxonomyTerm(request, env, origin, taxonomyTermsMatch[1]);
   }
 
   // Courses

@@ -10,7 +10,11 @@ import {
   handleUpdateProfile,
 } from '../features/profile/handlers.ts';
 import { handleGetRoadmap, handleListRoadmaps } from '../features/roadmaps/handlers.ts';
-import { handleListTaxonomies } from '../features/taxonomies/handlers.ts';
+import {
+  handleGetTaxonomy,
+  handleListTaxonomies,
+  handleListTaxonomyTerms,
+} from '../features/taxonomies/handlers.ts';
 import { errorResponse } from '../utils/response.ts';
 
 export async function routeUserRequest(
@@ -50,9 +54,23 @@ export async function routeUserRequest(
     if (request.method === 'DELETE') return handleDeleteProfile(env, origin, userId, profileMatch[1]);
   }
 
-  // 2. Taxonomies (chỉ đọc danh mục)
+  // 2. Taxonomies & Taxonomy Terms (chỉ đọc danh mục & thuật ngữ)
   if (path === '/taxonomies' && request.method === 'GET') {
-    return handleListTaxonomies(request, env, origin);
+    return handleListTaxonomies(env, origin);
+  }
+
+  const taxonomyMatch = path.match(/^\/taxonomies\/([^/]+)$/);
+  if (taxonomyMatch && request.method === 'GET') {
+    return handleGetTaxonomy(env, origin, taxonomyMatch[1]);
+  }
+
+  if (path === '/taxonomy-terms' && request.method === 'GET') {
+    return handleListTaxonomyTerms(request, env, origin);
+  }
+
+  const taxonomyTermsMatch = path.match(/^\/taxonomies\/([^/]+)\/terms$/);
+  if (taxonomyTermsMatch && request.method === 'GET') {
+    return handleListTaxonomyTerms(request, env, origin, taxonomyTermsMatch[1]);
   }
 
   // 3. Courses (Public / Search / Filter)

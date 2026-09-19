@@ -14,7 +14,8 @@ export async function handleListCourses(
   const q = url.searchParams.get('q')?.trim();
   const ageGroup = url.searchParams.get('age_group')?.trim();
   const level = url.searchParams.get('level')?.trim();
-  const taxonomyId = url.searchParams.get('taxonomy_id')?.trim();
+  const taxonomyTermId = url.searchParams.get('term_id') || url.searchParams.get('taxonomy_term_id');
+  const taxonomyCode = url.searchParams.get('taxonomy')?.trim();
 
   const whereConditions: string[] = ["c.status = 'published'"];
   const params: unknown[] = [];
@@ -35,9 +36,19 @@ export async function handleListCourses(
     params.push(level);
   }
 
-  if (taxonomyId) {
-    whereConditions.push('EXISTS (SELECT 1 FROM course_taxonomies ct WHERE ct.course_id = c.id AND ct.taxonomy_id = ?)');
-    params.push(taxonomyId);
+  if (taxonomyTermId) {
+    whereConditions.push('EXISTS (SELECT 1 FROM course_taxonomy_terms ctt WHERE ctt.course_id = c.id AND ctt.taxonomy_term_id = ?)');
+    params.push(taxonomyTermId);
+  }
+
+  if (taxonomyCode) {
+    whereConditions.push(`EXISTS (
+      SELECT 1 FROM course_taxonomy_terms ctt 
+      JOIN taxonomy_terms tt ON tt.id = ctt.taxonomy_term_id
+      JOIN taxonomies t ON t.id = tt.taxonomy_id
+      WHERE ctt.course_id = c.id AND (t.code = ? OR t.id = ?)
+    )`);
+    params.push(taxonomyCode, taxonomyCode);
   }
 
   const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
@@ -142,18 +153,19 @@ export async function handleGetCourse(
     lessons: items,
   }));
 
-  // Fetch Taxonomies of this course
-  const taxRes = await env.DB.prepare(`
-    SELECT t.id, t.code, t.name, t.type
-    FROM taxonomies t
-    JOIN course_taxonomies ct ON ct.taxonomy_id = t.id
-    WHERE ct.course_id = ?
-    ORDER BY t.sort_order ASC
+  // Fetch Taxonomy Terms of this course
+  const termsRes = await env.DB.prepare(`
+    SELECT tt.id, tt.code, tt.name, tt.icon, t.code as taxonomy_code, t.name as taxonomy_name
+    FROM taxonomy_terms tt
+    JOIN taxonomies t ON t.id = tt.taxonomy_id
+    JOIN course_taxonomy_terms ctt ON ctt.taxonomy_term_id = tt.id
+    WHERE ctt.course_id = ?
+    ORDER BY tt.sort_order ASC
   `).bind(course.id).all();
 
   const fullData = {
     ...course,
-    taxonomies: taxRes.results ?? [],
+    taxonomy_terms: termsRes.results ?? [],
     chapters,
   };
 
@@ -189,10 +201,11 @@ export async function handleCreateCourse(request: Request, env: Env, origin: str
       now
     ).run();
 
-    // Link Taxonomies if provided
-    if (Array.isArray(body.taxonomy_ids) && body.taxonomy_ids.length > 0) {
-      for (const taxId of body.taxonomy_ids) {
-        await env.DB.prepare('INSERT OR IGNORE INTO course_taxonomies (course_id, taxonomy_id) VALUES (?, ?)').bind(id, taxId).run();
+    // Link Taxonomy Terms if provided
+    const termIds = body.taxonomy_term_ids || body.term_ids;
+    if (Array.isArray(termIds) && termIds.length > 0) {
+      for (const termId of termIds) {
+        await env.DB.prepare('INSERT OR IGNORE INTO course_taxonomy_terms (course_id, taxonomy_term_id) VALUES (?, ?)').bind(id, termId).run();
       }
     }
 
