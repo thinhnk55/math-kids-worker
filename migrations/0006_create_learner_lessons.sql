@@ -1,6 +1,6 @@
 -- 6. Learner Lessons: Lưu lịch sử học tập theo từng bài học của profile
 CREATE TABLE IF NOT EXISTS learner_lessons (
-  profile_id TEXT NOT NULL,
+  profile_id INTEGER NOT NULL,
   user_id TEXT NOT NULL,
   lesson_id TEXT NOT NULL,
   course_id TEXT NOT NULL,

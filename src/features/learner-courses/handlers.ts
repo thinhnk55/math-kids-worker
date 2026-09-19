@@ -1,12 +1,15 @@
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
-async function resolveProfileId(env: Env, userId: string, requestedProfileId?: string | null): Promise<string | null> {
-  if (requestedProfileId) {
-    const p = await env.DB.prepare('SELECT id FROM profiles WHERE id = ? AND user_id = ?').bind(requestedProfileId, userId).first();
-    if (p) return requestedProfileId;
+async function resolveProfileId(env: Env, userId: string, requestedProfileId?: string | number | null): Promise<number | null> {
+  if (requestedProfileId !== undefined && requestedProfileId !== null && requestedProfileId !== '') {
+    const num = typeof requestedProfileId === 'number' ? requestedProfileId : Number.parseInt(String(requestedProfileId), 10);
+    if (!Number.isNaN(num)) {
+      const p = await env.DB.prepare('SELECT id FROM profiles WHERE id = ? AND user_id = ?').bind(num, userId).first<{ id: number }>();
+      if (p) return p.id;
+    }
   }
   const defaultP = await env.DB.prepare('SELECT id FROM profiles WHERE user_id = ? ORDER BY is_default DESC, created_at ASC LIMIT 1')
-    .bind(userId).first<{ id: string }>();
+    .bind(userId).first<{ id: number }>();
   return defaultP?.id ?? null;
 }
 
@@ -64,7 +67,7 @@ export async function handleEnrollCourse(
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const status = body?.status === 'favorite' ? 'favorite' : 'enrolled';
-  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string) || profileIdHeader);
+  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
 
   if (!targetProfileId) {
     return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi đăng ký khoá học', origin);

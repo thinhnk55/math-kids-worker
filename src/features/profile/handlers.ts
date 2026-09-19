@@ -1,5 +1,4 @@
 import { errorResponse, successResponse } from '../../utils/response.ts';
-import { generateUUIDv7 } from '../../utils/uuid.ts';
 
 const MAX_PROFILES_PER_USER = 3;
 
@@ -12,9 +11,12 @@ export async function handleListProfiles(env: Env, origin: string, userId: strin
 }
 
 export async function handleGetProfile(env: Env, origin: string, userId: string, profileId: string): Promise<Response> {
+  const numericId = Number.parseInt(profileId, 10);
+  if (Number.isNaN(numericId)) return errorResponse(400, 'VALIDATION_ERROR', 'ID hồ sơ không hợp lệ', origin);
+
   const profile = await env.DB.prepare(`
     SELECT * FROM profiles WHERE id = ? AND user_id = ?
-  `).bind(profileId, userId).first();
+  `).bind(numericId, userId).first();
 
   if (!profile) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy hồ sơ người học', origin);
   return successResponse(200, 'SUCCESS', profile, origin);
@@ -35,7 +37,6 @@ export async function handleCreateProfile(request: Request, env: Env, origin: st
     return errorResponse(400, 'VALIDATION_ERROR', 'Tên người học (name) là bắt buộc', origin);
   }
 
-  const id = generateUUIDv7();
   const name = String(body.name).trim();
   const firstName = body.first_name ? String(body.first_name).trim() : null;
   const lastName = body.last_name ? String(body.last_name).trim() : null;
@@ -48,12 +49,13 @@ export async function handleCreateProfile(request: Request, env: Env, origin: st
     await env.DB.prepare('UPDATE profiles SET is_default = 0 WHERE user_id = ?').bind(userId).run();
   }
 
-  await env.DB.prepare(`
-    INSERT INTO profiles (id, user_id, name, first_name, last_name, birth_year, avatar, is_default, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(id, userId, name, firstName, lastName, birthYear, avatar, isDefault, now, now).run();
+  const result = await env.DB.prepare(`
+    INSERT INTO profiles (user_id, name, first_name, last_name, birth_year, avatar, is_default, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(userId, name, firstName, lastName, birthYear, avatar, isDefault, now, now).run();
 
-  const profile = await env.DB.prepare('SELECT * FROM profiles WHERE id = ?').bind(id).first();
+  const insertedId = result.meta.last_row_id;
+  const profile = await env.DB.prepare('SELECT * FROM profiles WHERE id = ?').bind(insertedId).first();
   return successResponse(201, 'CREATED', profile, origin);
 }
 
@@ -64,8 +66,11 @@ export async function handleUpdateProfile(
   userId: string,
   profileId: string
 ): Promise<Response> {
+  const numericId = Number.parseInt(profileId, 10);
+  if (Number.isNaN(numericId)) return errorResponse(400, 'VALIDATION_ERROR', 'ID hồ sơ không hợp lệ', origin);
+
   const existing = await env.DB.prepare('SELECT id FROM profiles WHERE id = ? AND user_id = ?')
-    .bind(profileId, userId).first();
+    .bind(numericId, userId).first();
   if (!existing) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy hồ sơ người học', origin);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -112,29 +117,32 @@ export async function handleUpdateProfile(
   }
 
   updateQuery += ' WHERE id = ? AND user_id = ?';
-  params.push(profileId, userId);
+  params.push(numericId, userId);
 
   await env.DB.prepare(updateQuery).bind(...params).run();
 
-  const profile = await env.DB.prepare('SELECT * FROM profiles WHERE id = ?').bind(profileId).first();
+  const profile = await env.DB.prepare('SELECT * FROM profiles WHERE id = ?').bind(numericId).first();
   return successResponse(200, 'UPDATED', profile, origin);
 }
 
 export async function handleDeleteProfile(env: Env, origin: string, userId: string, profileId: string): Promise<Response> {
+  const numericId = Number.parseInt(profileId, 10);
+  if (Number.isNaN(numericId)) return errorResponse(400, 'VALIDATION_ERROR', 'ID hồ sơ không hợp lệ', origin);
+
   const existing = await env.DB.prepare('SELECT id, is_default FROM profiles WHERE id = ? AND user_id = ?')
-    .bind(profileId, userId).first<{ id: string; is_default: number }>();
+    .bind(numericId, userId).first<{ id: number; is_default: number }>();
   if (!existing) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy hồ sơ', origin);
 
-  await env.DB.prepare('DELETE FROM profiles WHERE id = ? AND user_id = ?').bind(profileId, userId).run();
+  await env.DB.prepare('DELETE FROM profiles WHERE id = ? AND user_id = ?').bind(numericId, userId).run();
 
   // If deleted profile was default, make another one default
   if (existing.is_default === 1) {
     const nextProfile = await env.DB.prepare('SELECT id FROM profiles WHERE user_id = ? ORDER BY created_at ASC LIMIT 1')
-      .bind(userId).first<{ id: string }>();
+      .bind(userId).first<{ id: number }>();
     if (nextProfile) {
       await env.DB.prepare('UPDATE profiles SET is_default = 1 WHERE id = ?').bind(nextProfile.id).run();
     }
   }
 
-  return successResponse(200, 'DELETED', { id: profileId }, origin);
+  return successResponse(200, 'DELETED', { id: numericId }, origin);
 }

@@ -1,6 +1,6 @@
 -- 1. Profiles: Hồ sơ người học (mỗi người dùng tối đa 3 profile con)
 CREATE TABLE IF NOT EXISTS profiles (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   first_name TEXT,
