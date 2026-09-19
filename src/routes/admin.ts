@@ -5,9 +5,13 @@ import { handleCreateUploadPresign, handleDeleteStorageAsset } from '../features
 import {
   handleCreateTaxonomy,
   handleCreateTaxonomyTerm,
+  handleDeleteTaxonomy,
+  handleDeleteTaxonomyTerm,
   handleGetTaxonomy,
   handleListTaxonomies,
   handleListTaxonomyTerms,
+  handleUpdateTaxonomy,
+  handleUpdateTaxonomyTerm,
 } from '../features/taxonomies/handlers.ts';
 import { errorResponse } from '../utils/response.ts';
 
@@ -28,11 +32,19 @@ export async function routeAdminRequest(
   const taxonomyMatch = path.match(/^\/taxonomies\/([^/]+)$/);
   if (taxonomyMatch) {
     if (request.method === 'GET') return handleGetTaxonomy(env, origin, taxonomyMatch[1]);
+    if (request.method === 'PUT' || request.method === 'PATCH') return handleUpdateTaxonomy(request, env, origin, taxonomyMatch[1]);
+    if (request.method === 'DELETE') return handleDeleteTaxonomy(env, origin, taxonomyMatch[1]);
   }
 
   // Taxonomy Terms
   if (path === '/taxonomy-terms') {
     if (request.method === 'GET') return handleListTaxonomyTerms(request, env, origin);
+  }
+
+  const taxonomyTermDetailMatch = path.match(/^\/taxonomy-terms\/([^/]+)$/);
+  if (taxonomyTermDetailMatch) {
+    if (request.method === 'PUT' || request.method === 'PATCH') return handleUpdateTaxonomyTerm(request, env, origin, taxonomyTermDetailMatch[1]);
+    if (request.method === 'DELETE') return handleDeleteTaxonomyTerm(env, origin, taxonomyTermDetailMatch[1]);
   }
 
   const taxonomyTermsMatch = path.match(/^\/taxonomies\/([^/]+)\/terms$/);

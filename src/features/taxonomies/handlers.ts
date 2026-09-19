@@ -128,3 +128,93 @@ export async function handleCreateTaxonomyTerm(request: Request, env: Env, origi
     return errorResponse(500, 'INTERNAL_ERROR', message, origin);
   }
 }
+
+export async function handleUpdateTaxonomy(request: Request, env: Env, origin: string, idOrCode: string): Promise<Response> {
+  const idNum = Number.parseInt(idOrCode, 10);
+  const taxonomy = await env.DB.prepare(
+    !Number.isNaN(idNum) ? 'SELECT * FROM taxonomies WHERE id = ? OR code = ? LIMIT 1' : 'SELECT * FROM taxonomies WHERE code = ? LIMIT 1'
+  ).bind(!Number.isNaN(idNum) ? idNum : idOrCode, idOrCode).first<Record<string, unknown>>();
+
+  if (!taxonomy) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy taxonomy', origin);
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body) return errorResponse(400, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', origin);
+
+  const name = body.name !== undefined ? String(body.name).trim() : taxonomy.name;
+  const description = body.description !== undefined ? (body.description ? String(body.description).trim() : null) : taxonomy.description;
+  const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : taxonomy.sort_order;
+  const now = Date.now();
+
+  try {
+    await env.DB.prepare(`
+      UPDATE taxonomies SET name = ?, description = ?, sort_order = ?, updated_at = ?
+      WHERE id = ?
+    `).bind(name, description, sortOrder, now, taxonomy.id).run();
+
+    const updated = await env.DB.prepare('SELECT * FROM taxonomies WHERE id = ?').bind(taxonomy.id).first();
+    return successResponse(200, 'UPDATED', updated, origin);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResponse(500, 'INTERNAL_ERROR', message, origin);
+  }
+}
+
+export async function handleDeleteTaxonomy(env: Env, origin: string, idOrCode: string): Promise<Response> {
+  const idNum = Number.parseInt(idOrCode, 10);
+  const taxonomy = await env.DB.prepare(
+    !Number.isNaN(idNum) ? 'SELECT id FROM taxonomies WHERE id = ? OR code = ? LIMIT 1' : 'SELECT id FROM taxonomies WHERE code = ? LIMIT 1'
+  ).bind(!Number.isNaN(idNum) ? idNum : idOrCode, idOrCode).first<{ id: number }>();
+
+  if (!taxonomy) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy taxonomy', origin);
+
+  await env.DB.prepare('DELETE FROM taxonomies WHERE id = ?').bind(taxonomy.id).run();
+  return successResponse(200, 'DELETED', { id: taxonomy.id }, origin);
+}
+
+export async function handleUpdateTaxonomyTerm(request: Request, env: Env, origin: string, termId: string): Promise<Response> {
+  const termIdNum = Number.parseInt(termId, 10);
+  if (Number.isNaN(termIdNum)) return errorResponse(400, 'VALIDATION_ERROR', 'ID term không hợp lệ', origin);
+
+  const current = await env.DB.prepare('SELECT * FROM taxonomy_terms WHERE id = ? LIMIT 1')
+    .bind(termIdNum).first<Record<string, unknown>>();
+  if (!current) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy term', origin);
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body) return errorResponse(400, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', origin);
+
+  const name = body.name !== undefined ? String(body.name).trim() : current.name;
+  const description = body.description !== undefined ? (body.description ? String(body.description).trim() : null) : current.description;
+  const icon = body.icon !== undefined ? (body.icon ? String(body.icon).trim() : null) : current.icon;
+  const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : current.sort_order;
+  const parentId = body.parent_id !== undefined
+    ? (body.parent_id ? Number.parseInt(String(body.parent_id), 10) : null)
+    : current.parent_id;
+  const now = Date.now();
+
+  try {
+    await env.DB.prepare(`
+      UPDATE taxonomy_terms 
+      SET name = ?, description = ?, icon = ?, sort_order = ?, parent_id = ?, updated_at = ?
+      WHERE id = ?
+    `).bind(name, description, icon, sortOrder, parentId, now, termIdNum).run();
+
+    const updated = await env.DB.prepare('SELECT * FROM taxonomy_terms WHERE id = ?').bind(termIdNum).first();
+    return successResponse(200, 'UPDATED', updated, origin);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResponse(500, 'INTERNAL_ERROR', message, origin);
+  }
+}
+
+export async function handleDeleteTaxonomyTerm(env: Env, origin: string, termId: string): Promise<Response> {
+  const termIdNum = Number.parseInt(termId, 10);
+  if (Number.isNaN(termIdNum)) return errorResponse(400, 'VALIDATION_ERROR', 'ID term không hợp lệ', origin);
+
+  const current = await env.DB.prepare('SELECT id FROM taxonomy_terms WHERE id = ? LIMIT 1')
+    .bind(termIdNum).first<{ id: number }>();
+  if (!current) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy term', origin);
+
+  await env.DB.prepare('DELETE FROM taxonomy_terms WHERE id = ?').bind(termIdNum).run();
+  return successResponse(200, 'DELETED', { id: termIdNum }, origin);
+}
+
