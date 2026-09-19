@@ -1,5 +1,6 @@
--- 6. Learner Lessons: Lưu lịch sử học tập theo từng bài học
+-- 6. Learner Lessons: Lưu lịch sử học tập theo từng bài học của profile
 CREATE TABLE IF NOT EXISTS learner_lessons (
+  profile_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
   lesson_id TEXT NOT NULL,
   course_id TEXT NOT NULL,
@@ -9,9 +10,11 @@ CREATE TABLE IF NOT EXISTS learner_lessons (
   completed_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, lesson_id),
+  PRIMARY KEY (profile_id, lesson_id),
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
   FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_learner_lessons_user_course ON learner_lessons(user_id, course_id);
+CREATE INDEX IF NOT EXISTS idx_learner_lessons_profile_course ON learner_lessons(profile_id, course_id);
+CREATE INDEX IF NOT EXISTS idx_learner_lessons_user ON learner_lessons(user_id);

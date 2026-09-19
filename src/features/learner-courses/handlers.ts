@@ -1,8 +1,29 @@
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
-export async function handleListMyCourses(request: Request, env: Env, origin: string, userId: string): Promise<Response> {
+async function resolveProfileId(env: Env, userId: string, requestedProfileId?: string | null): Promise<string | null> {
+  if (requestedProfileId) {
+    const p = await env.DB.prepare('SELECT id FROM profiles WHERE id = ? AND user_id = ?').bind(requestedProfileId, userId).first();
+    if (p) return requestedProfileId;
+  }
+  const defaultP = await env.DB.prepare('SELECT id FROM profiles WHERE user_id = ? ORDER BY is_default DESC, created_at ASC LIMIT 1')
+    .bind(userId).first<{ id: string }>();
+  return defaultP?.id ?? null;
+}
+
+export async function handleListMyCourses(
+  request: Request,
+  env: Env,
+  origin: string,
+  userId: string,
+  profileIdHeader?: string | null
+): Promise<Response> {
   const url = new URL(request.url);
-  const status = url.searchParams.get('status'); // 'enrolled' | 'favorite' | 'completed'
+  const status = url.searchParams.get('status');
+  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+
+  if (!targetProfileId) {
+    return successResponse(200, 'SUCCESS', [], origin);
+  }
 
   let query = `
     SELECT 
@@ -12,13 +33,13 @@ export async function handleListMyCourses(request: Request, env: Env, origin: st
       lc.enrolled_at,
       lc.updated_at as last_studied_at,
       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id AND l.status = 'published') as total_lessons,
-      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.user_id = ? AND ll.status = 'completed') as completed_lessons
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ? AND ll.status = 'completed') as completed_lessons
     FROM learner_courses lc
     JOIN courses c ON c.id = lc.course_id
-    WHERE lc.user_id = ?
+    WHERE lc.profile_id = ?
   `;
 
-  const params: unknown[] = [userId, userId];
+  const params: unknown[] = [targetProfileId, targetProfileId];
   if (status) {
     query += ' AND lc.status = ?';
     params.push(status);
@@ -30,33 +51,62 @@ export async function handleListMyCourses(request: Request, env: Env, origin: st
   return successResponse(200, 'SUCCESS', results ?? [], origin);
 }
 
-export async function handleEnrollCourse(request: Request, env: Env, origin: string, userId: string, courseId: string): Promise<Response> {
+export async function handleEnrollCourse(
+  request: Request,
+  env: Env,
+  origin: string,
+  userId: string,
+  courseId: string,
+  profileIdHeader?: string | null
+): Promise<Response> {
   const course = await env.DB.prepare('SELECT id FROM courses WHERE id = ?').bind(courseId).first();
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const status = body?.status === 'favorite' ? 'favorite' : 'enrolled';
+  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string) || profileIdHeader);
+
+  if (!targetProfileId) {
+    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi đăng ký khoá học', origin);
+  }
+
   const now = Date.now();
 
   await env.DB.prepare(`
-    INSERT INTO learner_courses (user_id, course_id, status, enrolled_at, updated_at)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(user_id, course_id) DO UPDATE SET
+    INSERT INTO learner_courses (profile_id, user_id, course_id, status, enrolled_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(profile_id, course_id) DO UPDATE SET
       status = excluded.status,
       updated_at = excluded.updated_at
-  `).bind(userId, courseId, status, now, now).run();
+  `).bind(targetProfileId, userId, courseId, status, now, now).run();
 
   const record = await env.DB.prepare(`
     SELECT lc.*, c.title, c.slug 
     FROM learner_courses lc
     JOIN courses c ON c.id = lc.course_id
-    WHERE lc.user_id = ? AND lc.course_id = ?
-  `).bind(userId, courseId).first();
+    WHERE lc.profile_id = ? AND lc.course_id = ?
+  `).bind(targetProfileId, courseId).first();
 
   return successResponse(200, 'SUCCESS', record, origin);
 }
 
-export async function handleUnenrollCourse(env: Env, origin: string, userId: string, courseId: string): Promise<Response> {
-  await env.DB.prepare('DELETE FROM learner_courses WHERE user_id = ? AND course_id = ?').bind(userId, courseId).run();
-  return successResponse(200, 'DELETED', { course_id: courseId }, origin);
+export async function handleUnenrollCourse(
+  request: Request,
+  env: Env,
+  origin: string,
+  userId: string,
+  courseId: string,
+  profileIdHeader?: string | null
+): Promise<Response> {
+  const url = new URL(request.url);
+  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+
+  if (!targetProfileId) {
+    return errorResponse(400, 'BAD_REQUEST', 'Không tìm thấy hồ sơ học sinh', origin);
+  }
+
+  await env.DB.prepare('DELETE FROM learner_courses WHERE profile_id = ? AND course_id = ?')
+    .bind(targetProfileId, courseId).run();
+
+  return successResponse(200, 'DELETED', { course_id: courseId, profile_id: targetProfileId }, origin);
 }

@@ -18,9 +18,13 @@ API backend trên Cloudflare Workers cho ứng dụng **Toán Thiếu Nhi (Math 
    - `GET /v1/lessons/:lessonId`: Chi tiết bài học.
    - `POST /v1/admin/courses/:courseId/lessons`: Thêm bài học mới (Admin).
 
-4. **Profile (`profile`)**:
-   - `GET /v1/profile`: Xem hồ sơ học tập của bé (nickname, cấp lớp, avatar, năm sinh).
-   - `PUT /v1/profile`: Cập nhật hồ sơ học tập.
+4. **Profiles (`profiles`)**:
+   - `GET /v1/profiles`: Danh sách hồ sơ học sinh của người dùng (tối đa 3 profile con).
+   - `POST /v1/profiles`: Tạo hồ sơ học sinh mới (`name`, `avatar`, `is_default`).
+   - `GET /v1/profiles/:profileId`: Chi tiết một hồ sơ học sinh.
+   - `PUT /v1/profiles/:profileId`: Cập nhật tên hoặc avatar của hồ sơ.
+   - `DELETE /v1/profiles/:profileId`: Xoá hồ sơ học sinh.
+   - Hỗ trợ header `X-Profile-ID` hoặc query `?profile_id=` ở các API học tập (`/v1/my/courses`, `/v1/my/lessons/...`).
 
 5. **Learner Courses (`my/courses`)**:
    - `GET /v1/my/courses`: Danh sách khoá học mà người dùng đã đăng ký hoặc yêu thích (`?status=enrolled|favorite`). Kèm tiến độ số bài hoàn thành.

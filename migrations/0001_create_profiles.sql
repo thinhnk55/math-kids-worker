@@ -1,10 +1,12 @@
--- 1. Profiles: Hồ sơ người học (thiết lập nickname, avatar, độ tuổi, cấp lớp)
+-- 1. Profiles: Hồ sơ người học (mỗi người dùng tối đa 3 profile con)
 CREATE TABLE IF NOT EXISTS profiles (
-  user_id TEXT PRIMARY KEY,
-  display_name TEXT NOT NULL,
-  avatar_url TEXT,
-  grade_level TEXT, -- vd: 'preschool', 'grade_1', 'grade_2', 'grade_3'
-  birth_year INTEGER,
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  avatar TEXT,
+  is_default INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);

@@ -2,7 +2,13 @@ import { parsePagination } from '../../utils/pagination.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
 import { generateUUIDv7 } from '../../utils/uuid.ts';
 
-export async function handleListCourses(request: Request, env: Env, origin: string, userId?: string): Promise<Response> {
+export async function handleListCourses(
+  request: Request,
+  env: Env,
+  origin: string,
+  userId?: string,
+  profileId?: string
+): Promise<Response> {
   const url = new URL(request.url);
   const { page, size, offset } = parsePagination(url);
   const q = url.searchParams.get('q')?.trim();
@@ -48,7 +54,12 @@ export async function handleListCourses(request: Request, env: Env, origin: stri
       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id AND l.status = 'published') as total_lessons
   `;
 
-  if (userId) {
+  if (profileId) {
+    listQuery += `,
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = '${profileId}') as enrolled_status,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = '${profileId}' AND ll.status = 'completed') as completed_lessons
+    `;
+  } else if (userId) {
     listQuery += `,
       (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = '${userId}') as enrolled_status,
       (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.user_id = '${userId}' AND ll.status = 'completed') as completed_lessons
@@ -67,14 +78,26 @@ export async function handleListCourses(request: Request, env: Env, origin: stri
   return successResponse(200, 'SUCCESS', results ?? [], origin, { page, size, total });
 }
 
-export async function handleGetCourse(env: Env, origin: string, courseIdOrSlug: string, userId?: string): Promise<Response> {
+export async function handleGetCourse(
+  env: Env,
+  origin: string,
+  courseIdOrSlug: string,
+  userId?: string,
+  profileId?: string
+): Promise<Response> {
   let query = `
     SELECT 
       c.*,
       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id AND l.status = 'published') as total_lessons
   `;
 
-  if (userId) {
+  if (profileId) {
+    query += `,
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = '${profileId}') as enrolled_status,
+      (SELECT lc.last_lesson_id FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = '${profileId}') as last_lesson_id,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = '${profileId}' AND ll.status = 'completed') as completed_lessons
+    `;
+  } else if (userId) {
     query += `,
       (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = '${userId}') as enrolled_status,
       (SELECT lc.last_lesson_id FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = '${userId}') as last_lesson_id,
@@ -92,9 +115,10 @@ export async function handleGetCourse(env: Env, origin: string, courseIdOrSlug: 
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
   // Fetch Lessons grouped by chapter
+  const condition = profileId ? `ll.profile_id = '${profileId}'` : userId ? `ll.user_id = '${userId}'` : null;
   const lessonsRes = await env.DB.prepare(`
-    SELECT l.* ${userId ? `, (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.user_id = '${userId}') as learner_status,
-      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ll.user_id = '${userId}') as stars` : ''}
+    SELECT l.* ${condition ? `, (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as learner_status,
+      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as stars` : ''}
     FROM lessons l
     WHERE l.course_id = ? AND l.status = 'published'
     ORDER BY l.sort_order ASC, l.created_at ASC
