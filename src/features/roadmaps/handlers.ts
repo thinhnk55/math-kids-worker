@@ -1,3 +1,4 @@
+import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
 export async function handleListRoadmaps(env: Env, origin: string): Promise<Response> {
@@ -22,6 +23,16 @@ export async function handleGetRoadmap(
 
   if (!roadmap) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy lộ trình học', origin);
 
+  const targetProfileId = userId && profileId ? Number.parseInt(profileId, 10) : null;
+
+  // Lấy thông tin tiến trình của roadmap nếu có profileId
+  let learnerRoadmap: Record<string, unknown> | null = null;
+  if (targetProfileId) {
+    learnerRoadmap = await env.DB.prepare(`
+      SELECT * FROM learner_roadmaps WHERE profile_id = ? AND roadmap_id = ?
+    `).bind(targetProfileId, roadmap.id).first<Record<string, unknown>>();
+  }
+
   // Fetch courses in roadmap
   let query = `
     SELECT 
@@ -30,15 +41,18 @@ export async function handleGetRoadmap(
       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id AND l.status = 'published') as total_lessons
   `;
 
-  if (profileId) {
-    const numProfileId = Number.parseInt(profileId, 10);
+  if (targetProfileId) {
     query += `,
-      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as enrolled_status,
-      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${numProfileId} AND ll.status = 'completed') as completed_lessons
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${targetProfileId}) as enrolled_status,
+      (SELECT lc.score FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${targetProfileId}) as learner_score,
+      (SELECT lc.meta FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${targetProfileId}) as learner_meta,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${targetProfileId} AND ll.status = 'completed') as completed_lessons
     `;
   } else if (userId) {
     query += `,
       (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as enrolled_status,
+      (SELECT lc.score FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as learner_score,
+      (SELECT lc.meta FROM learner_courses lc WHERE lc.course_id = c.id AND lc.user_id = ${userId}) as learner_meta,
       (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.user_id = ${userId} AND ll.status = 'completed') as completed_lessons
     `;
   }
@@ -54,8 +68,86 @@ export async function handleGetRoadmap(
 
   return successResponse(200, 'SUCCESS', {
     ...roadmap,
+    learner_progress: learnerRoadmap,
     courses: results ?? [],
   }, origin);
+}
+
+export async function handleListMyRoadmaps(
+  request: Request,
+  env: Env,
+  origin: string,
+  userId: number,
+  profileIdHeader?: string | null
+): Promise<Response> {
+  const url = new URL(request.url);
+  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+
+  if (!targetProfileId) {
+    return successResponse(200, 'SUCCESS', [], origin);
+  }
+
+  const { results } = await env.DB.prepare(`
+    SELECT lr.*, r.code, r.name, r.description, r.age_range
+    FROM learner_roadmaps lr
+    JOIN roadmaps r ON r.id = lr.roadmap_id
+    WHERE lr.profile_id = ?
+    ORDER BY lr.updated_at DESC
+  `).bind(targetProfileId).all();
+
+  return successResponse(200, 'SUCCESS', results ?? [], origin);
+}
+
+export async function handleSaveRoadmapProgress(
+  request: Request,
+  env: Env,
+  origin: string,
+  userId: number,
+  roadmapIdOrCode: string,
+  profileIdHeader?: string | null
+): Promise<Response> {
+  const roadmapIdNum = Number.parseInt(roadmapIdOrCode, 10);
+  const roadmap = await env.DB.prepare(
+    !Number.isNaN(roadmapIdNum) ? 'SELECT id FROM roadmaps WHERE id = ? OR code = ?' : 'SELECT id FROM roadmaps WHERE code = ?'
+  ).bind(!Number.isNaN(roadmapIdNum) ? roadmapIdNum : roadmapIdOrCode, roadmapIdOrCode).first<{ id: number }>();
+
+  if (!roadmap) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy lộ trình học', origin);
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
+
+  if (!targetProfileId) {
+    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi lưu tiến độ lộ trình', origin);
+  }
+
+  const status = body?.status === 'completed' ? 'completed' : 'in_progress';
+  const currentStepOrder = typeof body?.current_step_order === 'number' ? body.current_step_order : 1;
+  const score = typeof body?.score === 'number' ? body.score : 0;
+
+  let metaString: string | null = null;
+  if (body?.meta !== undefined && body?.meta !== null) {
+    metaString = typeof body.meta === 'string' ? body.meta : JSON.stringify(body.meta);
+  }
+
+  const now = Date.now();
+  const completedAt = status === 'completed' ? now : null;
+
+  await env.DB.prepare(`
+    INSERT INTO learner_roadmaps (profile_id, user_id, roadmap_id, status, current_step_order, score, meta, started_at, completed_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(profile_id, roadmap_id) DO UPDATE SET
+      status = excluded.status,
+      current_step_order = MAX(learner_roadmaps.current_step_order, excluded.current_step_order),
+      score = MAX(learner_roadmaps.score, excluded.score),
+      meta = COALESCE(excluded.meta, learner_roadmaps.meta),
+      completed_at = COALESCE(learner_roadmaps.completed_at, excluded.completed_at),
+      updated_at = excluded.updated_at
+  `).bind(targetProfileId, userId, roadmap.id, status, currentStepOrder, score, metaString, now, completedAt, now).run();
+
+  const record = await env.DB.prepare('SELECT * FROM learner_roadmaps WHERE profile_id = ? AND roadmap_id = ?')
+    .bind(targetProfileId, roadmap.id).first();
+
+  return successResponse(200, 'SUCCESS', record, origin);
 }
 
 export async function handleCreateRoadmap(request: Request, env: Env, origin: string): Promise<Response> {

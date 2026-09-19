@@ -9,7 +9,12 @@ import {
   handleListProfiles,
   handleUpdateProfile,
 } from '../features/profile/handlers.ts';
-import { handleGetRoadmap, handleListRoadmaps } from '../features/roadmaps/handlers.ts';
+import {
+  handleGetRoadmap,
+  handleListMyRoadmaps,
+  handleListRoadmaps,
+  handleSaveRoadmapProgress,
+} from '../features/roadmaps/handlers.ts';
 import {
   handleGetTaxonomy,
   handleListTaxonomies,
@@ -119,7 +124,16 @@ export async function routeUserRequest(
     return handleSaveLessonProgress(request, env, origin, userId, saveLessonProgressMatch[1], profileIdHeader);
   }
 
-  // 6. Roadmaps (Lộ trình học)
+  // 6. Roadmaps & Learner Roadmaps (Lộ trình học & Tiến trình lộ trình)
+  if (path === '/my/roadmaps' && request.method === 'GET') {
+    return handleListMyRoadmaps(request, env, origin, userId, profileIdHeader);
+  }
+
+  const saveRoadmapProgressMatch = path.match(/^\/my\/roadmaps\/([^/]+)\/progress$/);
+  if (saveRoadmapProgressMatch && (request.method === 'POST' || request.method === 'PUT')) {
+    return handleSaveRoadmapProgress(request, env, origin, userId, saveRoadmapProgressMatch[1], profileIdHeader);
+  }
+
   if (path === '/roadmaps' && request.method === 'GET') {
     return handleListRoadmaps(env, origin);
   }

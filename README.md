@@ -35,9 +35,11 @@ API backend trên Cloudflare Workers cho ứng dụng **Toán Thiếu Nhi (Math 
    - `GET /v1/my/courses/:courseId/lessons`: Lịch sử học tập theo từng bài của khoá học.
    - `POST /v1/my/lessons/:lessonId/progress`: Lưu tiến độ bài học (trạng thái `in_progress` | `completed`, điểm số, số sao đạt được ⭐ 1-3). Tự động cập nhật bài học gần nhất (`last_lesson_id`) của khoá.
 
-7. **Roadmaps (`roadmaps`)**:
+7. **Roadmaps & Learner Roadmaps (`roadmaps` & `my/roadmaps`)**:
    - `GET /v1/roadmaps`: Danh sách lộ trình học đề xuất.
-   - `GET /v1/roadmaps/:idOrCode`: Chi tiết lộ trình cùng các khoá học theo thứ tự các chặng học.
+   - `GET /v1/roadmaps/:idOrCode`: Chi tiết lộ trình cùng các khoá học theo thứ tự các chặng học và tiến trình của người học (`learner_progress`).
+   - `GET /v1/my/roadmaps`: Danh sách các lộ trình người học đang tham gia và trạng thái hoàn thành.
+   - `POST /v1/my/roadmaps/:idOrCode/progress`: Cập nhật chặng học hiện tại (`current_step_order`), điểm số (`score`), trạng thái (`completed`), và metadata (`meta`).
    - `POST /v1/admin/roadmaps`: Tạo lộ trình học (Admin).
 
 ## Phát triển & Kiểm thử

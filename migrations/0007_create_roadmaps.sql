@@ -22,3 +22,23 @@ CREATE TABLE IF NOT EXISTS roadmap_courses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_roadmap_courses_step ON roadmap_courses(roadmap_id, step_order);
+
+-- Bảng lưu tiến trình học theo Roadmap của từng profile
+CREATE TABLE IF NOT EXISTS learner_roadmaps (
+  profile_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  roadmap_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'in_progress', -- 'in_progress', 'completed'
+  current_step_order INTEGER NOT NULL DEFAULT 1,
+  score INTEGER DEFAULT 0,
+  meta TEXT, -- JSON linh hoạt (lưu badges, milestones, custom stats...)
+  started_at INTEGER NOT NULL,
+  completed_at INTEGER,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (profile_id, roadmap_id),
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  FOREIGN KEY (roadmap_id) REFERENCES roadmaps(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_learner_roadmaps_profile ON learner_roadmaps(profile_id, status);
+CREATE INDEX IF NOT EXISTS idx_learner_roadmaps_user ON learner_roadmaps(user_id);
