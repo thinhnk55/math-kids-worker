@@ -43,14 +43,13 @@ export async function handleCreateLesson(request: Request, env: Env, origin: str
 
   try {
     await env.DB.prepare(`
-      INSERT INTO lessons (id, course_id, chapter_title, title, duration_minutes, sort_order, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lessons (id, course_id, chapter_title, title, sort_order, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id,
       courseId,
       body.chapter_title ? String(body.chapter_title).trim() : 'Chương 1',
       String(body.title).trim(),
-      typeof body.duration_minutes === 'number' ? body.duration_minutes : 15,
       typeof body.sort_order === 'number' ? body.sort_order : 0,
       body.status ? String(body.status).trim() : 'published',
       now,
