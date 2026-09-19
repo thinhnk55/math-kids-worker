@@ -115,11 +115,12 @@ export async function handleGetCourse(
   const course = await env.DB.prepare(query).bind(courseIdOrSlug, courseIdOrSlug).first<Record<string, unknown>>();
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
-  // Fetch Lessons grouped by chapter
+  // Fetch Lessons and calculate sequential access
   const condition = profileId ? `ll.profile_id = ${Number.parseInt(profileId, 10)}` : userId ? `ll.user_id = ${userId}` : null;
   const lessonsRes = await env.DB.prepare(`
     SELECT l.* ${condition ? `, (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as learner_status,
-      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as stars` : ''}
+      (SELECT ll.stars FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as stars,
+      (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as score` : ''}
     FROM lessons l
     WHERE l.course_id = ? AND l.status = 'published'
     ORDER BY l.sort_order ASC, l.created_at ASC
@@ -135,7 +136,21 @@ export async function handleGetCourse(
     ORDER BY tt.sort_order ASC
   `).bind(course.id).all();
 
-  const lessons = lessonsRes.results ?? [];
+  const rawLessons = (lessonsRes.results ?? []) as Array<Record<string, unknown>>;
+  let previousLessonCompleted = true; // Bài đầu tiên luôn được mở
+
+  const lessons = rawLessons.map((item, index) => {
+    const isCompleted = item.learner_status === 'completed';
+    // Bài đầu tiên (index === 0) luôn mở (is_locked = false)
+    // Các bài tiếp theo chỉ mở nếu bài liền trước đã completed
+    const isLocked = index === 0 ? false : !previousLessonCompleted;
+    previousLessonCompleted = isCompleted;
+
+    return {
+      ...item,
+      is_locked: isLocked,
+    };
+  });
 
   const fullData = {
     ...course,

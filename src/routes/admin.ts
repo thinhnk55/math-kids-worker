@@ -54,13 +54,13 @@ export async function routeAdminRequest(
   // Course Lessons
   const courseLessonsMatch = path.match(/^\/courses\/([^/]+)\/lessons$/);
   if (courseLessonsMatch) {
-    if (request.method === 'GET') return handleListLessons(env, origin, courseLessonsMatch[1]);
+    if (request.method === 'GET') return handleListLessons(request, env, origin, courseLessonsMatch[1]);
     if (request.method === 'POST') return handleCreateLesson(request, env, origin, courseLessonsMatch[1]);
   }
 
   const lessonMatch = path.match(/^\/lessons\/([^/]+)$/);
   if (lessonMatch) {
-    if (request.method === 'GET') return handleGetLesson(env, origin, lessonMatch[1]);
+    if (request.method === 'GET') return handleGetLesson(request, env, origin, lessonMatch[1]);
   }
 
   // Roadmaps

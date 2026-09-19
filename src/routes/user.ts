@@ -85,12 +85,12 @@ export async function routeUserRequest(
 
   const courseLessonsMatch = path.match(/^\/courses\/([^/]+)\/lessons$/);
   if (courseLessonsMatch && request.method === 'GET') {
-    return handleListLessons(env, origin, courseLessonsMatch[1]);
+    return handleListLessons(request, env, origin, courseLessonsMatch[1], userId, profileIdHeader);
   }
 
   const lessonMatch = path.match(/^\/lessons\/([^/]+)$/);
   if (lessonMatch && request.method === 'GET') {
-    return handleGetLesson(env, origin, lessonMatch[1]);
+    return handleGetLesson(request, env, origin, lessonMatch[1], userId, profileIdHeader);
   }
 
   // 4. Learner Courses (Khoá học của tôi / Đăng ký / Huỷ)

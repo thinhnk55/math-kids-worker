@@ -1,17 +1,5 @@
+import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
-
-async function resolveProfileId(env: Env, userId: number, requestedProfileId?: string | number | null): Promise<number | null> {
-  if (requestedProfileId !== undefined && requestedProfileId !== null && requestedProfileId !== '') {
-    const num = typeof requestedProfileId === 'number' ? requestedProfileId : Number.parseInt(String(requestedProfileId), 10);
-    if (!Number.isNaN(num)) {
-      const p = await env.DB.prepare('SELECT id FROM profiles WHERE id = ? AND user_id = ?').bind(num, userId).first<{ id: number }>();
-      if (p) return p.id;
-    }
-  }
-  const defaultP = await env.DB.prepare('SELECT id FROM profiles WHERE user_id = ? ORDER BY is_default DESC, created_at ASC LIMIT 1')
-    .bind(userId).first<{ id: number }>();
-  return defaultP?.id ?? null;
-}
 
 export async function handleListLearnerLessons(
   request: Request,
@@ -47,7 +35,8 @@ export async function handleSaveLessonProgress(
   lessonId: string,
   profileIdHeader?: string | null
 ): Promise<Response> {
-  const lesson = await env.DB.prepare('SELECT id, course_id FROM lessons WHERE id = ?').bind(lessonId).first<{ id: string; course_id: string }>();
+  const lesson = await env.DB.prepare('SELECT id, course_id, sort_order, created_at FROM lessons WHERE id = ?')
+    .bind(lessonId).first<{ id: string; course_id: string; sort_order: number; created_at: number }>();
   if (!lesson) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy bài học', origin);
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -58,6 +47,27 @@ export async function handleSaveLessonProgress(
   const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
   if (!targetProfileId) {
     return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi lưu tiến độ', origin);
+  }
+
+  // Kiểm tra tính tuần tự: Tìm bài học liền kề trước bài này trong cùng khoá học
+  const prevLesson = await env.DB.prepare(`
+    SELECT id FROM lessons 
+    WHERE course_id = ? AND status = 'published'
+      AND (sort_order < ? OR (sort_order = ? AND created_at < ?))
+    ORDER BY sort_order DESC, created_at DESC 
+    LIMIT 1
+  `).bind(lesson.course_id, lesson.sort_order, lesson.sort_order, lesson.created_at).first<{ id: string }>();
+
+  if (prevLesson) {
+    // Kiểm tra xem bài trước đã hoàn thành chưa
+    const prevProgress = await env.DB.prepare(`
+      SELECT status FROM learner_lessons 
+      WHERE profile_id = ? AND lesson_id = ?
+    `).bind(targetProfileId, prevLesson.id).first<{ status: string }>();
+
+    if (!prevProgress || prevProgress.status !== 'completed') {
+      return errorResponse(403, 'FORBIDDEN', 'Bạn cần hoàn thành bài học trước đó trước khi học bài này', origin);
+    }
   }
 
   const now = Date.now();
