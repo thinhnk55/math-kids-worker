@@ -1,5 +1,5 @@
-import { handleCreateCourse, handleGetCourse, handleListCourses } from '../features/courses/handlers.ts';
-import { handleCreateLesson, handleGetLesson, handleListLessons } from '../features/lessons/handlers.ts';
+import { handleCreateCourse, handleDeleteCourse, handleGetCourse, handleListCourses, handleUpdateCourse } from '../features/courses/handlers.ts';
+import { handleCreateLesson, handleDeleteLesson, handleGetLesson, handleListLessons, handleUpdateLesson } from '../features/lessons/handlers.ts';
 import { handleCreateRoadmap, handleGetRoadmap, handleListRoadmaps } from '../features/roadmaps/handlers.ts';
 import { handleCreateUploadPresign, handleDeleteStorageAsset } from '../features/storage/handlers.ts';
 import {
@@ -62,6 +62,8 @@ export async function routeAdminRequest(
   const courseMatch = path.match(/^\/courses\/([^/]+)$/);
   if (courseMatch) {
     if (request.method === 'GET') return handleGetCourse(env, origin, courseMatch[1]);
+    if (request.method === 'PUT' || request.method === 'PATCH') return handleUpdateCourse(request, env, origin, courseMatch[1]);
+    if (request.method === 'DELETE') return handleDeleteCourse(env, origin, courseMatch[1]);
   }
 
   // Course Lessons
@@ -74,6 +76,8 @@ export async function routeAdminRequest(
   const lessonMatch = path.match(/^\/lessons\/([^/]+)$/);
   if (lessonMatch) {
     if (request.method === 'GET') return handleGetLesson(request, env, origin, lessonMatch[1]);
+    if (request.method === 'PUT' || request.method === 'PATCH') return handleUpdateLesson(request, env, origin, lessonMatch[1]);
+    if (request.method === 'DELETE') return handleDeleteLesson(env, origin, lessonMatch[1]);
   }
 
   // Roadmaps

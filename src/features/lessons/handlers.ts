@@ -134,3 +134,46 @@ export async function handleCreateLesson(request: Request, env: Env, origin: str
     return errorResponse(500, 'INTERNAL_ERROR', message, origin);
   }
 }
+
+export async function handleUpdateLesson(request: Request, env: Env, origin: string, lessonId: string): Promise<Response> {
+  const lessonIdNum = Number.parseInt(lessonId, 10);
+  if (Number.isNaN(lessonIdNum)) return errorResponse(400, 'VALIDATION_ERROR', 'lessonId không hợp lệ', origin);
+
+  const current = await env.DB.prepare('SELECT * FROM lessons WHERE id = ? LIMIT 1').bind(lessonIdNum).first<Record<string, unknown>>();
+  if (!current) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy bài học', origin);
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  if (!body) return errorResponse(400, 'VALIDATION_ERROR', 'Dữ liệu không hợp lệ', origin);
+
+  const title = body.title !== undefined ? String(body.title).trim() : current.title;
+  const coverUrl = body.cover_url !== undefined ? (body.cover_url ? String(body.cover_url).trim() : null) : current.cover_url;
+  const sortOrder = typeof body.sort_order === 'number' ? body.sort_order : current.sort_order;
+  const status = body.status !== undefined ? String(body.status).trim() : current.status;
+  const now = Date.now();
+
+  try {
+    await env.DB.prepare(`
+      UPDATE lessons 
+      SET title = ?, cover_url = ?, sort_order = ?, status = ?, updated_at = ?
+      WHERE id = ?
+    `).bind(title, coverUrl, sortOrder, status, now, lessonIdNum).run();
+
+    const updated = await env.DB.prepare('SELECT * FROM lessons WHERE id = ?').bind(lessonIdNum).first();
+    return successResponse(200, 'UPDATED', updated, origin);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResponse(500, 'INTERNAL_ERROR', message, origin);
+  }
+}
+
+export async function handleDeleteLesson(env: Env, origin: string, lessonId: string): Promise<Response> {
+  const lessonIdNum = Number.parseInt(lessonId, 10);
+  if (Number.isNaN(lessonIdNum)) return errorResponse(400, 'VALIDATION_ERROR', 'lessonId không hợp lệ', origin);
+
+  const current = await env.DB.prepare('SELECT id FROM lessons WHERE id = ? LIMIT 1').bind(lessonIdNum).first<{ id: number }>();
+  if (!current) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy bài học', origin);
+
+  await env.DB.prepare('DELETE FROM lessons WHERE id = ?').bind(lessonIdNum).run();
+  return successResponse(200, 'DELETED', { id: lessonIdNum }, origin);
+}
+
