@@ -1,4 +1,3 @@
-import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
 export async function handleListMyCourses(
@@ -6,11 +5,11 @@ export async function handleListMyCourses(
   env: Env,
   origin: string,
   userId: number,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
   const url = new URL(request.url);
   const status = url.searchParams.get('status');
-  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+  const targetProfileId = profileId ?? null;
 
   if (!targetProfileId) {
     return successResponse(200, 'SUCCESS', [], origin);
@@ -50,7 +49,7 @@ export async function handleEnrollCourse(
   origin: string,
   userId: number,
   courseIdOrSlug: string,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
   const courseIdNum = Number.parseInt(courseIdOrSlug, 10);
   const course = await env.DB.prepare(
@@ -59,6 +58,11 @@ export async function handleEnrollCourse(
 
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
+  const targetProfileId = profileId ?? null;
+  if (!targetProfileId) {
+    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng chỉ định hồ sơ học sinh (?profile_id=...) trước khi đăng ký khoá học', origin);
+  }
+
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const status = body?.status === 'favorite' ? 'favorite' : body?.status === 'completed' ? 'completed' : 'enrolled';
   const score = typeof body?.score === 'number' ? body.score : 0;
@@ -66,12 +70,6 @@ export async function handleEnrollCourse(
   let metaString: string | null = null;
   if (body?.meta !== undefined && body?.meta !== null) {
     metaString = typeof body.meta === 'string' ? body.meta : JSON.stringify(body.meta);
-  }
-
-  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
-
-  if (!targetProfileId) {
-    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi đăng ký khoá học', origin);
   }
 
   const now = Date.now();
@@ -102,13 +100,12 @@ export async function handleUnenrollCourse(
   origin: string,
   userId: number,
   courseIdOrSlug: string,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
-  const url = new URL(request.url);
-  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+  const targetProfileId = profileId ?? null;
 
   if (!targetProfileId) {
-    return errorResponse(400, 'BAD_REQUEST', 'Không tìm thấy hồ sơ học sinh', origin);
+    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng chỉ định hồ sơ học sinh (?profile_id=...)', origin);
   }
 
   const courseIdNum = Number.parseInt(courseIdOrSlug, 10);

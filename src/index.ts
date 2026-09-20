@@ -39,7 +39,7 @@ export default {
     if (pathname === '/v1' || pathname.startsWith('/v1/')) {
       const auth = await requireUser(request, env, origin);
       if (!auth.ok) return auth.response;
-      return routeUserRequest(request, env, origin, pathname, auth.payload.sub, auth.payload.role);
+      return routeUserRequest(request, env, origin, pathname, auth.payload.sub, auth.payload.role, auth.payload.profiles);
     }
 
     return errorResponse(404, 'NOT_FOUND', 'Endpoint not found', origin);

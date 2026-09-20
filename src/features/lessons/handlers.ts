@@ -1,4 +1,3 @@
-import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
 import { slugify } from '../../utils/slug.ts';
 
@@ -8,10 +7,10 @@ export async function handleListLessons(
   origin: string,
   courseId: string,
   userId?: number,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
   const url = new URL(request.url);
-  const targetProfileId = userId ? await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader) : null;
+  const targetProfileId = profileId ?? null;
   const courseIdNum = Number.parseInt(courseId, 10);
 
   const statusParam = url.searchParams.get('status')?.trim();
@@ -61,10 +60,9 @@ export async function handleGetLesson(
   origin: string,
   lessonId: string,
   userId?: number,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
-  const url = new URL(request.url);
-  const targetProfileId = userId ? await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader) : null;
+  const targetProfileId = profileId ?? null;
   const lessonIdNum = Number.parseInt(lessonId, 10);
 
   let query = 'SELECT l.*';

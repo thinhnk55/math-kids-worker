@@ -3,13 +3,6 @@ import { handleEnrollCourse, handleListMyCourses, handleUnenrollCourse } from '.
 import { handleListLearnerLessons, handleSaveLessonProgress } from '../features/learner-lessons/handlers.ts';
 import { handleGetLesson, handleListLessons } from '../features/lessons/handlers.ts';
 import {
-  handleCreateProfile,
-  handleDeleteProfile,
-  handleGetProfile,
-  handleListProfiles,
-  handleUpdateProfile,
-} from '../features/profile/handlers.ts';
-import {
   handleGetRoadmap,
   handleListMyRoadmaps,
   handleListRoadmaps,
@@ -20,6 +13,7 @@ import {
   handleListTaxonomies,
   handleListTaxonomyTerms,
 } from '../features/taxonomies/handlers.ts';
+import { validateProfileId } from '../utils/profile.ts';
 import { errorResponse } from '../utils/response.ts';
 
 export async function routeUserRequest(
@@ -28,15 +22,24 @@ export async function routeUserRequest(
   origin: string,
   pathname: string,
   userIdString: string,
-  userRole?: string
+  userRole?: string,
+  profilesInToken?: number[]
 ): Promise<Response> {
   const path = pathname.slice('/v1'.length) || '/';
-  const profileIdHeader = request.headers.get('X-Profile-ID');
   const userId = Number.parseInt(userIdString, 10);
 
   if (Number.isNaN(userId)) {
     return errorResponse(401, 'UNAUTHORIZED', 'ID người dùng không hợp lệ', origin);
   }
+
+  // Kiểm tra profile_id từ query param (?profile_id=...)
+  // Nếu có param profile_id thì phải nằm trong profiles của JWT payload.
+  // Không có thì profileId = null và không cần kiểm tra.
+  const profileValidation = validateProfileId(request, profilesInToken, origin);
+  if (!profileValidation.ok) {
+    return profileValidation.response;
+  }
+  const profileId = profileValidation.profileId;
 
   if (path === '/' || path === '/health') {
     return new Response(JSON.stringify({ status: 'ok', service: 'math-kids-worker', userId, userRole }), {
@@ -44,22 +47,7 @@ export async function routeUserRequest(
     });
   }
 
-  // 1. Profiles (Danh sách, Tạo, Chi tiết, Cập nhật, Xoá)
-  if (path === '/profiles') {
-    if (request.method === 'GET') return handleListProfiles(env, origin, userId);
-    if (request.method === 'POST') return handleCreateProfile(request, env, origin, userId);
-  }
-
-  const profileMatch = path.match(/^\/profiles\/([^/]+)$/);
-  if (profileMatch) {
-    if (request.method === 'GET') return handleGetProfile(env, origin, userId, profileMatch[1]);
-    if (request.method === 'PUT' || request.method === 'POST') {
-      return handleUpdateProfile(request, env, origin, userId, profileMatch[1]);
-    }
-    if (request.method === 'DELETE') return handleDeleteProfile(env, origin, userId, profileMatch[1]);
-  }
-
-  // 2. Taxonomies & Taxonomy Terms (chỉ đọc danh mục & thuật ngữ)
+  // 1. Taxonomies & Taxonomy Terms (chỉ đọc danh mục & thuật ngữ)
   if (path === '/taxonomies' && request.method === 'GET') {
     return handleListTaxonomies(env, origin);
   }
@@ -78,60 +66,60 @@ export async function routeUserRequest(
     return handleListTaxonomyTerms(request, env, origin, taxonomyTermsMatch[1]);
   }
 
-  // 3. Courses (Public / Search / Filter)
+  // 2. Courses (Public / Search / Filter)
   if (path === '/courses' && request.method === 'GET') {
-    return handleListCourses(request, env, origin, userId, profileIdHeader || undefined);
+    return handleListCourses(request, env, origin, userId, profileId);
   }
 
   const courseMatch = path.match(/^\/courses\/([^/]+)$/);
   if (courseMatch && request.method === 'GET') {
-    return handleGetCourse(env, origin, courseMatch[1], userId, profileIdHeader || undefined);
+    return handleGetCourse(env, origin, courseMatch[1], userId, profileId);
   }
 
   const courseLessonsMatch = path.match(/^\/courses\/([^/]+)\/lessons$/);
   if (courseLessonsMatch && request.method === 'GET') {
-    return handleListLessons(request, env, origin, courseLessonsMatch[1], userId, profileIdHeader);
+    return handleListLessons(request, env, origin, courseLessonsMatch[1], userId, profileId);
   }
 
   const lessonMatch = path.match(/^\/lessons\/([^/]+)$/);
   if (lessonMatch && request.method === 'GET') {
-    return handleGetLesson(request, env, origin, lessonMatch[1], userId, profileIdHeader);
+    return handleGetLesson(request, env, origin, lessonMatch[1], userId, profileId);
   }
 
-  // 4. Learner Courses (Khoá học của tôi / Đăng ký / Huỷ)
+  // 3. Learner Courses (Khoá học của tôi / Đăng ký / Huỷ)
   if (path === '/my/courses') {
-    if (request.method === 'GET') return handleListMyCourses(request, env, origin, userId, profileIdHeader);
+    if (request.method === 'GET') return handleListMyCourses(request, env, origin, userId, profileId);
   }
 
   const enrollCourseMatch = path.match(/^\/my\/courses\/([^/]+)$/);
   if (enrollCourseMatch) {
     if (request.method === 'POST' || request.method === 'PUT') {
-      return handleEnrollCourse(request, env, origin, userId, enrollCourseMatch[1], profileIdHeader);
+      return handleEnrollCourse(request, env, origin, userId, enrollCourseMatch[1], profileId);
     }
     if (request.method === 'DELETE') {
-      return handleUnenrollCourse(request, env, origin, userId, enrollCourseMatch[1], profileIdHeader);
+      return handleUnenrollCourse(request, env, origin, userId, enrollCourseMatch[1], profileId);
     }
   }
 
-  // 5. Learner Lessons (Lịch sử học tập & Lưu tiến độ bài)
+  // 4. Learner Lessons (Lịch sử học tập & Lưu tiến độ bài)
   const learnerCourseLessonsMatch = path.match(/^\/my\/courses\/([^/]+)\/lessons$/);
   if (learnerCourseLessonsMatch && request.method === 'GET') {
-    return handleListLearnerLessons(request, env, origin, userId, learnerCourseLessonsMatch[1], profileIdHeader);
+    return handleListLearnerLessons(request, env, origin, userId, learnerCourseLessonsMatch[1], profileId);
   }
 
   const saveLessonProgressMatch = path.match(/^\/my\/lessons\/([^/]+)\/progress$/);
   if (saveLessonProgressMatch && (request.method === 'POST' || request.method === 'PUT')) {
-    return handleSaveLessonProgress(request, env, origin, userId, saveLessonProgressMatch[1], profileIdHeader);
+    return handleSaveLessonProgress(request, env, origin, userId, saveLessonProgressMatch[1], profileId);
   }
 
-  // 6. Roadmaps & Learner Roadmaps (Lộ trình học & Tiến trình lộ trình)
+  // 5. Roadmaps & Learner Roadmaps (Lộ trình học & Tiến trình lộ trình)
   if (path === '/my/roadmaps' && request.method === 'GET') {
-    return handleListMyRoadmaps(request, env, origin, userId, profileIdHeader);
+    return handleListMyRoadmaps(request, env, origin, userId, profileId);
   }
 
   const saveRoadmapProgressMatch = path.match(/^\/my\/roadmaps\/([^/]+)\/progress$/);
   if (saveRoadmapProgressMatch && (request.method === 'POST' || request.method === 'PUT')) {
-    return handleSaveRoadmapProgress(request, env, origin, userId, saveRoadmapProgressMatch[1], profileIdHeader);
+    return handleSaveRoadmapProgress(request, env, origin, userId, saveRoadmapProgressMatch[1], profileId);
   }
 
   if (path === '/roadmaps' && request.method === 'GET') {
@@ -140,7 +128,7 @@ export async function routeUserRequest(
 
   const roadmapMatch = path.match(/^\/roadmaps\/([^/]+)$/);
   if (roadmapMatch && request.method === 'GET') {
-    return handleGetRoadmap(env, origin, roadmapMatch[1], userId, profileIdHeader || undefined);
+    return handleGetRoadmap(env, origin, roadmapMatch[1], userId, profileId);
   }
 
   return errorResponse(404, 'NOT_FOUND', 'User endpoint not found', origin);

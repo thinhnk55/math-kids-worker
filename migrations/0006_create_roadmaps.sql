@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS learner_roadmaps (
   completed_at INTEGER,
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (profile_id, roadmap_id),
-  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
   FOREIGN KEY (roadmap_id) REFERENCES roadmaps(id) ON DELETE CASCADE
 );
 

@@ -6,7 +6,7 @@ export async function handleListCourses(
   env: Env,
   origin: string,
   userId?: number,
-  profileId?: string,
+  profileId?: number | null,
   isAdmin?: boolean
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -84,10 +84,9 @@ export async function handleListCourses(
   `;
 
   if (profileId) {
-    const numProfileId = Number.parseInt(profileId, 10);
     listQuery += `,
-      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as enrolled_status,
-      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${numProfileId} AND ll.status = 'completed') as completed_lessons
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${profileId}) as enrolled_status,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${profileId} AND ll.status = 'completed') as completed_lessons
     `;
   } else if (userId) {
     listQuery += `,
@@ -113,7 +112,7 @@ export async function handleGetCourse(
   origin: string,
   courseIdOrSlug: string,
   userId?: number,
-  profileId?: string
+  profileId?: number | null
 ): Promise<Response> {
   const courseIdNum = Number.parseInt(courseIdOrSlug, 10);
   let query = `
@@ -123,13 +122,12 @@ export async function handleGetCourse(
   `;
 
   if (profileId) {
-    const numProfileId = Number.parseInt(profileId, 10);
     query += `,
-      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as enrolled_status,
-      (SELECT lc.score FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as learner_score,
-      (SELECT lc.meta FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as learner_meta,
-      (SELECT lc.last_lesson_id FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${numProfileId}) as last_lesson_id,
-      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${numProfileId} AND ll.status = 'completed') as completed_lessons
+      (SELECT lc.status FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${profileId}) as enrolled_status,
+      (SELECT lc.score FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${profileId}) as learner_score,
+      (SELECT lc.meta FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${profileId}) as learner_meta,
+      (SELECT lc.last_lesson_id FROM learner_courses lc WHERE lc.course_id = c.id AND lc.profile_id = ${profileId}) as last_lesson_id,
+      (SELECT COUNT(*) FROM learner_lessons ll WHERE ll.course_id = c.id AND ll.profile_id = ${profileId} AND ll.status = 'completed') as completed_lessons
     `;
   } else if (userId) {
     query += `,
@@ -152,7 +150,7 @@ export async function handleGetCourse(
   if (!course) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy khoá học', origin);
 
   // Fetch Lessons and calculate sequential access
-  const condition = profileId ? `ll.profile_id = ${Number.parseInt(profileId, 10)}` : userId ? `ll.user_id = ${userId}` : null;
+  const condition = profileId ? `ll.profile_id = ${profileId}` : userId ? `ll.user_id = ${userId}` : null;
   const lessonsRes = await env.DB.prepare(`
     SELECT l.* ${condition ? `, (SELECT ll.status FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as learner_status,
       (SELECT ll.score FROM learner_lessons ll WHERE ll.lesson_id = l.id AND ${condition}) as score,

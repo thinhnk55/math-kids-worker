@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS learner_courses (
   enrolled_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (profile_id, course_id),
-  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
 

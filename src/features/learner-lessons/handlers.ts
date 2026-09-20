@@ -1,4 +1,3 @@
-import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
 export async function handleListLearnerLessons(
@@ -7,10 +6,9 @@ export async function handleListLearnerLessons(
   origin: string,
   userId: number,
   courseIdOrSlug: string,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
-  const url = new URL(request.url);
-  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+  const targetProfileId = profileId ?? null;
 
   if (!targetProfileId) {
     return successResponse(200, 'SUCCESS', [], origin);
@@ -40,13 +38,18 @@ export async function handleSaveLessonProgress(
   origin: string,
   userId: number,
   lessonId: string,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
   const lessonIdNum = Number.parseInt(lessonId, 10);
   const lesson = await env.DB.prepare(
     !Number.isNaN(lessonIdNum) ? 'SELECT id, course_id, sort_order, created_at FROM lessons WHERE id = ?' : 'SELECT id, course_id, sort_order, created_at FROM lessons WHERE id = ?'
   ).bind(!Number.isNaN(lessonIdNum) ? lessonIdNum : lessonId).first<{ id: number; course_id: number; sort_order: number; created_at: number }>();
   if (!lesson) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy bài học', origin);
+
+  const targetProfileId = profileId ?? null;
+  if (!targetProfileId) {
+    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng chỉ định hồ sơ học sinh (?profile_id=...) trước khi lưu tiến độ', origin);
+  }
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const status = body?.status === 'completed' ? 'completed' : 'in_progress';
@@ -56,11 +59,6 @@ export async function handleSaveLessonProgress(
   let metaString: string | null = null;
   if (body?.meta !== undefined && body?.meta !== null) {
     metaString = typeof body.meta === 'string' ? body.meta : JSON.stringify(body.meta);
-  }
-
-  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
-  if (!targetProfileId) {
-    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi lưu tiến độ', origin);
   }
 
   // Kiểm tra tính tuần tự: Tìm bài học liền kề trước bài này trong cùng khoá học

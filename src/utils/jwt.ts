@@ -6,6 +6,7 @@ export interface JwtPayload {
   iat: number;
   exp: number;
   nbf: number;
+  profiles?: number[];
 }
 
 export async function verifyAccessToken(token: string, publicKeyPem: string): Promise<{ valid: boolean; payload?: JwtPayload }> {

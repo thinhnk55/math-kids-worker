@@ -1,4 +1,3 @@
-import { resolveProfileId } from '../../utils/profile.ts';
 import { errorResponse, successResponse } from '../../utils/response.ts';
 
 export async function handleListRoadmaps(env: Env, origin: string): Promise<Response> {
@@ -14,7 +13,7 @@ export async function handleGetRoadmap(
   origin: string,
   roadmapIdOrCode: string,
   userId?: number,
-  profileId?: string
+  profileId?: number | null
 ): Promise<Response> {
   const roadmapIdNum = Number.parseInt(roadmapIdOrCode, 10);
   const roadmap = await env.DB.prepare(
@@ -23,7 +22,7 @@ export async function handleGetRoadmap(
 
   if (!roadmap) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy lộ trình học', origin);
 
-  const targetProfileId = userId && profileId ? Number.parseInt(profileId, 10) : null;
+  const targetProfileId = profileId ?? null;
 
   // Lấy thông tin tiến trình của roadmap nếu có profileId
   let learnerRoadmap: Record<string, unknown> | null = null;
@@ -78,10 +77,9 @@ export async function handleListMyRoadmaps(
   env: Env,
   origin: string,
   userId: number,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
-  const url = new URL(request.url);
-  const targetProfileId = await resolveProfileId(env, userId, url.searchParams.get('profile_id') || profileIdHeader);
+  const targetProfileId = profileId ?? null;
 
   if (!targetProfileId) {
     return successResponse(200, 'SUCCESS', [], origin);
@@ -104,7 +102,7 @@ export async function handleSaveRoadmapProgress(
   origin: string,
   userId: number,
   roadmapIdOrCode: string,
-  profileIdHeader?: string | null
+  profileId?: number | null
 ): Promise<Response> {
   const roadmapIdNum = Number.parseInt(roadmapIdOrCode, 10);
   const roadmap = await env.DB.prepare(
@@ -113,13 +111,13 @@ export async function handleSaveRoadmapProgress(
 
   if (!roadmap) return errorResponse(404, 'NOT_FOUND', 'Không tìm thấy lộ trình học', origin);
 
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  const targetProfileId = await resolveProfileId(env, userId, (body?.profile_id as string | number) || profileIdHeader);
+  const targetProfileId = profileId ?? null;
 
   if (!targetProfileId) {
-    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng tạo hồ sơ học sinh trước khi lưu tiến độ lộ trình', origin);
+    return errorResponse(400, 'BAD_REQUEST', 'Vui lòng chỉ định hồ sơ học sinh (?profile_id=...) trước khi lưu tiến độ lộ trình', origin);
   }
 
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const status = body?.status === 'completed' ? 'completed' : 'in_progress';
   const currentStepOrder = typeof body?.current_step_order === 'number' ? body.current_step_order : 1;
   const score = typeof body?.score === 'number' ? body.score : 0;
